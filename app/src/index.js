@@ -16,11 +16,22 @@ app.use(cors({ origin: process.env.CORS_ORIGIN || '*' }));
 // Current search state — replaced on reindex
 let searchRouter = null;
 let indexReady = false;
+let alive = false; // true once past delay and DB connected or index found
 
 // All routes mounted under basePath
 const baseRouter = Router();
 
+// Liveness: ok as soon as DB connected or existing index found (keeps pod alive during build)
 baseRouter.get('/healthz', (_req, res) => {
+  if (alive) {
+    res.json({ status: 'ok', ready: indexReady });
+  } else {
+    res.status(503).json({ status: 'starting', message: 'Waiting for startup.' });
+  }
+});
+
+// Readiness: ok only when the search API can serve requests
+baseRouter.get('/readyz', (_req, res) => {
   if (indexReady) {
     res.json({ status: 'ok' });
   } else {
@@ -92,9 +103,11 @@ const server = app.listen(config.port, async () => {
       console.log(`Connecting to database ${config.db.database} at ${config.db.host}:${config.db.port}...`);
       await testConnection();
       console.log('Database connection successful.');
+      alive = true; // DB connected — signal liveness so k8s doesn't kill us during extraction
       await buildSourceFile();
     } else {
       console.log('FlexSearch index found, skipping extraction.');
+      alive = true; // existing index found — we're good
     }
 
     await loadIndex();
