@@ -13,6 +13,23 @@ import { createReindexRouter } from './reindex.js';
 const app = express();
 app.use(cors({ origin: process.env.CORS_ORIGIN || '*' }));
 
+// Request logging (skip health/readiness probes)
+app.use((req, res, next) => {
+  const skip = /\/(healthz|readyz)$/.test(req.path);
+  if (skip) return next();
+
+  const start = Date.now();
+  const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.ip;
+  const origJson = res.json.bind(res);
+  res.json = (body) => {
+    const ms = Date.now() - start;
+    const results = body?.total != null ? ` results=${body.total}` : '';
+    console.log(`${new Date().toISOString()} ${ip} ${req.method} ${req.originalUrl} ${res.statusCode} ${ms}ms${results}`);
+    return origJson(body);
+  };
+  next();
+});
+
 // Current search state — replaced on reindex
 let searchRouter = null;
 let indexReady = false;
@@ -90,15 +107,14 @@ const server = app.listen(config.port, async () => {
   if (config.basePath) console.log(`Base path: ${config.basePath}`);
 
   try {
-    if (config.startupDelay > 0) {
-      console.log(`Waiting ${config.startupDelay}s for WordPress to start...`);
-      await new Promise((r) => setTimeout(r, config.startupDelay * 1000));
-    }
-
     const flexPath = join(config.dataDir, 'wp-index-flex.json');
     const forceUpdate = process.env.FORCE_UPDATE === 'true';
 
     if (forceUpdate || !existsSync(flexPath)) {
+      if (config.startupDelay > 0) {
+        console.log(`Waiting ${config.startupDelay}s for WordPress to start...`);
+        await new Promise((r) => setTimeout(r, config.startupDelay * 1000));
+      }
       if (forceUpdate) console.log('FORCE_UPDATE is set, rebuilding index...');
       console.log(`Connecting to database ${config.db.database} at ${config.db.host}:${config.db.port}...`);
       await testConnection();
