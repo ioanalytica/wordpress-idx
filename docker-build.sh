@@ -9,7 +9,7 @@ TAG="$(git describe --tags --abbrev=0 2>/dev/null || true)"
 echo "Using tag: $TAG"
 
 # Docker tag friendly (no '+')
-PROD_IMAGE="harbor.ioanalytica.com/wordpress/wordpress-idx:${TAG}"
+PROD_IMAGE="harbor.ioanalytica.com/io/devops/wordpress-idx:${TAG}"
 
 echo "Linting Dockerfile …"
 hadolint Dockerfile
