@@ -1,9 +1,12 @@
 import { existsSync } from 'node:fs';
+import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import express from 'express';
+import { Document } from 'flexsearch';
 import config from './config.js';
 import { testConnection } from './db.js';
 import { buildSourceFile } from './indexer.js';
+import { createSearchRouter } from './searcher.js';
 
 const app = express();
 
@@ -35,6 +38,32 @@ app.listen(config.port, async () => {
     } else {
       console.log('FlexSearch index found, skipping extraction.');
     }
+
+    // Load index and mount search API
+    console.log('Loading FlexSearch index...');
+    const data = JSON.parse(await readFile(flexPath, 'utf-8'));
+
+    const entriesMap = new Map();
+    for (const entry of data.entries) {
+      entriesMap.set(entry.id, entry);
+    }
+
+    const index = new Document({
+      document: {
+        id: 'id',
+        index: ['content'],
+        store: true,
+      },
+      tokenize: 'forward',
+      charset: 'latin:advanced',
+    });
+
+    for (const [key, value] of Object.entries(data.flexIndex)) {
+      await index.import(key, value);
+    }
+
+    app.use(createSearchRouter(index, entriesMap));
+    console.log(`Search API ready. ${entriesMap.size} entries loaded.`);
   } catch (err) {
     console.error(`Startup error: ${err.message}`);
   }
