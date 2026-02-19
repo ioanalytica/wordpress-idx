@@ -9,6 +9,7 @@
   "dependencies": {
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
+    "flexsearch": "^0.8.212",
     "mysql2": "^3.12.0"
   }
 }

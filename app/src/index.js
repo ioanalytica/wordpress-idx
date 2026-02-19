@@ -1,3 +1,5 @@
+import { existsSync } from 'node:fs';
+import { join } from 'node:path';
 import express from 'express';
 import config from './config.js';
 import { testConnection } from './db.js';
@@ -24,7 +26,15 @@ app.listen(config.port, async () => {
     await testConnection();
     console.log('Database connection successful.');
 
-    await buildSourceFile();
+    const flexPath = join(config.dataDir, 'wp-index-flex.json');
+    const forceUpdate = process.env.FORCE_UPDATE === 'true';
+
+    if (forceUpdate || !existsSync(flexPath)) {
+      if (forceUpdate) console.log('FORCE_UPDATE is set, rebuilding index...');
+      await buildSourceFile();
+    } else {
+      console.log('FlexSearch index found, skipping extraction.');
+    }
   } catch (err) {
     console.error(`Startup error: ${err.message}`);
   }
