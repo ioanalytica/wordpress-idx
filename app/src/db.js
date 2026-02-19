@@ -10,7 +10,7 @@ export function createPool() {
     database: config.db.database,
     charset: config.db.charset,
     waitForConnections: true,
-    connectionLimit: 5,
+    connectionLimit: 1,
   });
 }
 
