@@ -6,6 +6,6 @@
 **/.Spotlight-V100
 **/.Trashes
 .git/
-.env
+**/.env
 data/
 **/node_modules/
