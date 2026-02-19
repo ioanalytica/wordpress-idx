@@ -1,0 +1,10 @@
+.*
+!.gitignore
+!.gitmodules
+!.gitlab-ci.*
+!.dockerignore
+!.env.example
+!.planning.md
+
+node_modules/
+data/
