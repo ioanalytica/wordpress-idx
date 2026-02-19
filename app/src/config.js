@@ -15,6 +15,7 @@ const config = {
   port: parseInt(process.env.PORT, 10) || 3000,
   dataDir: resolve(process.env.DATA_DIR || '/data'),
   basePath: process.env.BASE_PATH || '',
+  startupDelay: parseInt(process.env.STARTUP_DELAY, 10) || 0,
 };
 
 export default config;

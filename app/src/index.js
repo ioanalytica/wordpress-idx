@@ -79,6 +79,11 @@ const server = app.listen(config.port, async () => {
   if (config.basePath) console.log(`Base path: ${config.basePath}`);
 
   try {
+    if (config.startupDelay > 0) {
+      console.log(`Waiting ${config.startupDelay}s for WordPress to start...`);
+      await new Promise((r) => setTimeout(r, config.startupDelay * 1000));
+    }
+
     const flexPath = join(config.dataDir, 'wp-index-flex.json');
     const forceUpdate = process.env.FORCE_UPDATE === 'true';
 
