@@ -1,7 +1,7 @@
 import { existsSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import express from 'express';
+import express, { Router } from 'express';
 import cors from 'cors';
 import { Document } from 'flexsearch';
 import config from './config.js';
@@ -17,7 +17,10 @@ app.use(cors({ origin: process.env.CORS_ORIGIN || '*' }));
 let searchRouter = null;
 let indexReady = false;
 
-app.get('/healthz', (_req, res) => {
+// All routes mounted under basePath
+const baseRouter = Router();
+
+baseRouter.get('/healthz', (_req, res) => {
   if (indexReady) {
     res.json({ status: 'ok' });
   } else {
@@ -26,7 +29,7 @@ app.get('/healthz', (_req, res) => {
 });
 
 // Delegate search/stats to the current search router
-app.use((req, res, next) => {
+baseRouter.use((req, res, next) => {
   if (searchRouter && (req.path === '/api/search' || req.path === '/api/stats')) {
     return searchRouter(req, res, next);
   }
@@ -65,11 +68,15 @@ async function loadIndex() {
 }
 
 // Mount reindex endpoint
-app.use(createReindexRouter(loadIndex));
+baseRouter.use(createReindexRouter(loadIndex));
+
+// Mount all routes under basePath (empty string for local dev, /idx in k8s)
+app.use(config.basePath || '/', baseRouter);
 
 const server = app.listen(config.port, async () => {
   console.log(`wordpress-idx listening on port ${config.port}`);
   console.log(`Data directory: ${config.dataDir}`);
+  if (config.basePath) console.log(`Base path: ${config.basePath}`);
 
   try {
     const flexPath = join(config.dataDir, 'wp-index-flex.json');

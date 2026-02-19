@@ -7,7 +7,7 @@ COPY app/ ./
 
 # hadolint ignore=DL3007
 FROM node:22-alpine
-RUN mkdir -p /data && chown node:node /data
+RUN mkdir -p /idx && chown node:node /idx
 WORKDIR /app
 COPY --from=build --chown=node:node /app .
 USER node
