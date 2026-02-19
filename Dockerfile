@@ -7,6 +7,8 @@ COPY app/ ./
 
 # hadolint ignore=DL3007
 FROM node:22-alpine
+# hadolint ignore=DL3018
+RUN apk update && apk upgrade --no-cache && rm -rf /var/cache/apk/*
 RUN mkdir -p /idx && chown node:node /idx
 WORKDIR /app
 COPY --from=build --chown=node:node /app .
