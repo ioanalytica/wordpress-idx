@@ -2,6 +2,7 @@ import { existsSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import express from 'express';
+import cors from 'cors';
 import { Document } from 'flexsearch';
 import config from './config.js';
 import { testConnection } from './db.js';
@@ -11,6 +12,7 @@ import { createSearchRouter } from './searcher.js';
 import { createReindexRouter } from './reindex.js';
 
 const app = express();
+app.use(cors({ origin: process.env.CORS_ORIGIN || '*' }));
 
 // Current search state — replaced on reindex
 let searchRouter = null;
