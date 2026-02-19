@@ -19,6 +19,6 @@ TAG="${RAW//+/-}"
 PROD_IMAGE="harbor.ioanalytica.com/wordpress/wordpress-idx:${TAG}"
 
 # docker login harbor.ioanalytica.com
-docker buildx build --platform linux/amd64,linux/arm64 -t ${PROD_IMAGE} --push --pull .
+docker buildx build --platform linux/amd64,linux/arm64 -f Dockerfile -t ${PROD_IMAGE} --push --pull ..
 
 # end
