@@ -15,6 +15,7 @@ export function createSearchRouter(index, entriesMap) {
       }
 
       const useContext = context === 'true' && q;
+      const includeComments = req.query.include_comments === 'true';
       const results = candidates.map((e) => ({
         id: e.id,
         type: e.type,
@@ -24,13 +25,32 @@ export function createSearchRouter(index, entriesMap) {
         slug: e.slug,
         categories: e.categories,
         tags: e.tags,
-        content: useContext ? extractSnippet(e.content, q) : e.content,
+        content: useContext ? extractSnippet(e.content, q, includeComments ? e.commentsText : null) : e.content,
+        comments: e.comments || [],
       }));
 
       res.json({ total, results });
     } catch (err) {
       console.error('Search error:', err.message);
       res.status(500).json({ error: 'Search failed', message: err.message });
+    }
+  });
+
+  router.get('/api/entry/:id', (req, res) => {
+    try {
+      const id = parseInt(req.params.id, 10);
+      if (isNaN(id)) {
+        return res.status(400).json({ error: 'Invalid ID', message: 'ID must be an integer' });
+      }
+      const entry = entriesMap.get(id);
+      if (!entry) {
+        return res.status(404).json({ error: 'Not found', message: `No entry with ID ${id}` });
+      }
+      const { commentsText, ...rest } = entry;
+      res.json(rest);
+    } catch (err) {
+      console.error('Entry lookup error:', err.message);
+      res.status(500).json({ error: 'Lookup failed', message: err.message });
     }
   });
 
@@ -115,11 +135,15 @@ function filterEntries(query, index, entriesMap) {
     to_year,
     to_month,
     to_day,
+    include_comments,
   } = query;
 
   let candidates;
   if (q) {
-    const searchResults = index.search(q, { enrich: true });
+    const searchOpts = include_comments === 'true'
+      ? { enrich: true }
+      : { index: ['content'], enrich: true };
+    const searchResults = index.search(q, searchOpts);
     const idSet = new Set();
     for (const fieldResult of searchResults) {
       for (const item of fieldResult.result) {
@@ -178,23 +202,32 @@ function sortedEntries(counts) {
     .sort((a, b) => b.count - a.count);
 }
 
-function extractSnippet(content, query) {
-  const idx = content.toLowerCase().indexOf(query.toLowerCase());
+function extractSnippet(content, query, commentsText) {
+  let idx = content.toLowerCase().indexOf(query.toLowerCase());
+  if (idx === -1 && commentsText) {
+    const cIdx = commentsText.toLowerCase().indexOf(query.toLowerCase());
+    if (cIdx !== -1) {
+      return snippetAround(commentsText, cIdx, query.length);
+    }
+  }
   if (idx === -1) {
     return content.slice(0, 500);
   }
 
-  const matchLen = query.length;
+  return snippetAround(content, idx, query.length);
+}
+
+function snippetAround(text, idx, matchLen) {
   let start = Math.max(0, idx - 200);
-  let end = Math.min(content.length, idx + matchLen + 200);
+  let end = Math.min(text.length, idx + matchLen + 200);
 
   if (end - start > 500) {
     end = start + 500;
   }
 
-  let snippet = content.slice(start, end);
+  let snippet = text.slice(start, end);
   if (start > 0) snippet = '...' + snippet;
-  if (end < content.length) snippet = snippet + '...';
+  if (end < text.length) snippet = snippet + '...';
 
   return snippet;
 }

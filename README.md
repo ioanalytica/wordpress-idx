@@ -42,6 +42,7 @@ All parameters are optional. Omitting `q` returns all entries (metadata-only fil
 | `to_year`, `to_month`, `to_day` | string | | Alternative date components |
 | `limit` | integer | no limit | Maximum results to return |
 | `context` | boolean | `false` | When `true` and `q` is set, returns a ~500-char snippet around the match instead of full content |
+| `include_comments` | boolean | `false` | When `true`, full-text search also matches against comment text |
 
 **Response:**
 
@@ -58,7 +59,51 @@ All parameters are optional. Omitting `q` returns all entries (metadata-only fil
       "slug": "/example-post/",
       "categories": ["Tech"],
       "tags": ["kubernetes", "docker"],
-      "content": "Full text or context snippet..."
+      "content": "Full text or context snippet...",
+      "comments": [
+        {
+          "author": "Bob",
+          "date": "2024-03-16T08:00:00.000Z",
+          "content": "Great post!"
+        }
+      ]
+    }
+  ]
+}
+```
+
+### Entry by ID
+
+```
+GET /api/entry/:id
+```
+
+Returns a single post or page by its WordPress ID.
+
+| Status | Meaning |
+|---|---|
+| 200 | Entry found |
+| 400 | Invalid ID (not an integer) |
+| 404 | No entry with the given ID |
+
+**Response (200):**
+
+```json
+{
+  "id": 1234,
+  "type": "post",
+  "author": "Jane Doe",
+  "title": "Example Post",
+  "date": "2024-03-15T10:30:00.000Z",
+  "slug": "/example-post/",
+  "categories": ["Tech"],
+  "tags": ["kubernetes", "docker"],
+  "content": "Full text content...",
+  "comments": [
+    {
+      "author": "Bob",
+      "date": "2024-03-16T08:00:00.000Z",
+      "content": "Great post!"
     }
   ]
 }
@@ -133,11 +178,12 @@ Extracts all `publish`-status posts and pages from the WordPress database:
 
 - Joins `wp_posts` with `wp_users` for author display names
 - Joins `wp_term_relationships` / `wp_term_taxonomy` / `wp_terms` for categories and tags
+- Fetches approved comments from `wp_comments` (regular comments only, no pingbacks/trackbacks)
 - Strips HTML tags and decodes common entities
 - Normalises whitespace
 - Uses a single DB connection, closed after extraction
 
-Each indexed entry contains: `id`, `type`, `author`, `title`, `date`, `slug`, `categories`, `tags`, `content`.
+Each indexed entry contains: `id`, `type`, `author`, `title`, `date`, `slug`, `categories`, `tags`, `content`, `comments`.
 
 ## Index files
 

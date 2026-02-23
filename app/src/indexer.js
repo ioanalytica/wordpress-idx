@@ -29,7 +29,7 @@ async function buildFlexIndex() {
   const index = new Document({
     document: {
       id: 'id',
-      index: ['content'],
+      index: ['content', 'commentsText'],
       store: true,
     },
     tokenize: 'forward',

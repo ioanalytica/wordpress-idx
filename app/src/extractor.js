@@ -63,9 +63,36 @@ export async function extractAll() {
       }
     }
 
-    // 4. Assemble result
+    // 4. Fetch approved comments for all post IDs
+    const [comments] = await pool.query(
+      `
+      SELECT comment_post_ID AS post_id, comment_author, comment_date, comment_content
+      FROM ${prefix}comments
+      WHERE comment_approved = '1'
+        AND comment_type IN ('', 'comment')
+        AND comment_post_ID IN (?)
+      ORDER BY comment_date ASC
+    `,
+      [postIds],
+    );
+
+    // 5. Group comments by post ID
+    const commentsByPost = new Map();
+    for (const c of comments) {
+      if (!commentsByPost.has(c.post_id)) {
+        commentsByPost.set(c.post_id, []);
+      }
+      commentsByPost.get(c.post_id).push({
+        author: c.comment_author,
+        date: c.comment_date,
+        content: stripHtml(c.comment_content),
+      });
+    }
+
+    // 6. Assemble result
     return posts.map((p) => {
       const postTerms = termsByPost.get(p.ID) || { categories: [], tags: [] };
+      const postComments = commentsByPost.get(p.ID) || [];
       return {
         id: p.ID,
         type: p.post_type,
@@ -76,6 +103,8 @@ export async function extractAll() {
         categories: postTerms.categories,
         tags: postTerms.tags,
         content: stripHtml(p.post_content),
+        comments: postComments,
+        commentsText: postComments.map((c) => c.content).join(' '),
       };
     });
   } finally {

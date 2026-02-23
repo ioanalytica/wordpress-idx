@@ -58,7 +58,7 @@ baseRouter.get('/readyz', (_req, res) => {
 
 // Delegate search/stats to the current search router
 baseRouter.use((req, res, next) => {
-  if (searchRouter && (req.path === '/api/search' || req.path === '/api/stats')) {
+  if (searchRouter && (req.path === '/api/search' || req.path === '/api/stats' || req.path.startsWith('/api/entry/'))) {
     return searchRouter(req, res, next);
   }
   next();
@@ -78,7 +78,7 @@ async function loadIndex() {
   const index = new Document({
     document: {
       id: 'id',
-      index: ['content'],
+      index: ['content', 'commentsText'],
       store: true,
     },
     tokenize: 'forward',
