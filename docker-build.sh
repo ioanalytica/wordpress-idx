@@ -6,7 +6,7 @@ set -euo pipefail
 TAG="$(git describe --tags --abbrev=0 2>/dev/null || true)"
 [ -n "$TAG" ] || TAG="1.0.0"   # fallback if no tag at all
 
-# TAG=0.1.2
+TAG=0.1.3
 echo "Using tag: $TAG"
 
 # Docker tag friendly (no '+')
