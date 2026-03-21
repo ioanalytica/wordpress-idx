@@ -3,6 +3,7 @@
 !.gitmodules
 !.gitlab-ci.*
 !.dockerignore
+!.github
 !.env.example
 !.planning.md
 
