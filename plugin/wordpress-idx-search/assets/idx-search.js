@@ -136,15 +136,16 @@
         var isPhrase = /^".*"$/.test(rawQuery);
         var query = isPhrase ? rawQuery.slice(1, -1) : rawQuery;
 
-        // Client-side phrase filter for quoted queries: strip whitespace and check concatenated match
+        // Client-side phrase filter for quoted queries: word-boundary regex match
         var results = data.results;
         if (isPhrase && query) {
-            var phraseNorm = query.toLowerCase().replace(/\s+/g, '');
+            var escaped = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            var phraseRegex = new RegExp('\\b' + escaped.replace(/\s+/g, '\\s+') + '\\b', 'i');
             results = results.filter(function (entry) {
-                if (entry.content && stripHtml(entry.content).toLowerCase().replace(/\s+/g, '').indexOf(phraseNorm) !== -1) return true;
+                if (entry.content && phraseRegex.test(stripHtml(entry.content))) return true;
                 if (showComments && entry.comments) {
                     return entry.comments.some(function (c) {
-                        return c.content && stripHtml(c.content).toLowerCase().replace(/\s+/g, '').indexOf(phraseNorm) !== -1;
+                        return c.content && phraseRegex.test(stripHtml(c.content));
                     });
                 }
                 return false;

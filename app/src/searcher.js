@@ -156,13 +156,14 @@ function filterEntries(query, index, entriesMap) {
     }
     candidates = [...idSet].map((id) => entriesMap.get(id)).filter(Boolean);
 
-    // Post-filter for quoted phrase: strip all whitespace and check concatenated match
+    // Post-filter for quoted phrase: word-boundary regex match
     if (isPhrase) {
-      const phraseNorm = searchTerm.toLowerCase().replace(/\s+/g, '');
+      const escaped = searchTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const phraseRegex = new RegExp('\\b' + escaped.replace(/\s+/g, '\\s+') + '\\b', 'i');
       candidates = candidates.filter((e) => {
-        if (e.content && e.content.toLowerCase().replace(/\s+/g, '').includes(phraseNorm)) return true;
+        if (e.content && phraseRegex.test(e.content)) return true;
         if (include_comments === 'true' && e.comments) {
-          return e.comments.some((c) => c.content && c.content.toLowerCase().replace(/\s+/g, '').includes(phraseNorm));
+          return e.comments.some((c) => c.content && phraseRegex.test(c.content));
         }
         return false;
       });
