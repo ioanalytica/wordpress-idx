@@ -226,7 +226,7 @@ Key integration points:
 ./docker-build.sh
 ```
 
-Image: `node:22-alpine`, multi-arch (`linux/amd64`, `linux/arm64`), non-root (`node` user).
+Image: `node:24-alpine`, multi-arch (`linux/amd64`, `linux/arm64`), non-root (`node` user).
 
 ## Request logging
 
