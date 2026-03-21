@@ -1,12 +1,12 @@
 # hadolint ignore=DL3007
-FROM node:22-alpine AS build
+FROM node:24-alpine AS build
 WORKDIR /app
 COPY app/package*.json ./
 RUN npm ci --omit=dev
 COPY app/ ./
 
 # hadolint ignore=DL3007
-FROM node:22-alpine
+FROM node:24-alpine
 # hadolint ignore=DL3018
 RUN apk update && apk upgrade --no-cache && rm -rf /var/cache/apk/*
 RUN mkdir -p /idx && chown node:node /idx
