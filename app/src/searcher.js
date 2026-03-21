@@ -140,10 +140,14 @@ function filterEntries(query, index, entriesMap) {
 
   let candidates;
   if (q) {
+    // Detect quoted phrase search: "..." triggers exact phrase matching
+    const isPhrase = /^".*"$/.test(q);
+    const searchTerm = isPhrase ? q.slice(1, -1) : q;
+
     const searchOpts = include_comments === 'true'
       ? { enrich: true }
       : { index: ['content'], enrich: true };
-    const searchResults = index.search(q, searchOpts);
+    const searchResults = index.search(searchTerm, searchOpts);
     const idSet = new Set();
     for (const fieldResult of searchResults) {
       for (const item of fieldResult.result) {
@@ -151,6 +155,18 @@ function filterEntries(query, index, entriesMap) {
       }
     }
     candidates = [...idSet].map((id) => entriesMap.get(id)).filter(Boolean);
+
+    // Post-filter for quoted phrase: strip all whitespace and check concatenated match
+    if (isPhrase) {
+      const phraseNorm = searchTerm.toLowerCase().replace(/\s+/g, '');
+      candidates = candidates.filter((e) => {
+        if (e.content && e.content.toLowerCase().replace(/\s+/g, '').includes(phraseNorm)) return true;
+        if (include_comments === 'true' && e.comments) {
+          return e.comments.some((c) => c.content && c.content.toLowerCase().replace(/\s+/g, '').includes(phraseNorm));
+        }
+        return false;
+      });
+    }
   } else {
     candidates = [...entriesMap.values()];
   }
