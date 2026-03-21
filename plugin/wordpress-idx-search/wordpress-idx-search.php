@@ -2,10 +2,12 @@
 /**
  * Plugin Name: WordPress IDX Search
  * Description: Full-text search interface for the wordpress-idx sidecar API. Use the HTML comment &lt;!-- wordpress-idx-search --&gt; in any post or page to render the search form.
- * Version: 1.1.0
+ * Version: 1.2.0
  * Author: IO ANALYTICA
  * Author URI: https://ioanalytica.com
- * License: ISC
+ * License: GPLv2 or later
+ * License URI: https://www.gnu.org/licenses/gpl-2.0.html
+ * Text Domain: wordpress-idx-search
  */
 
 if (!defined('ABSPATH')) {
@@ -233,13 +235,13 @@ class WordpressIdxSearch {
             'wordpress-idx-search',
             plugin_dir_url(__FILE__) . 'assets/idx-search.css',
             [],
-            '1.1.0'
+            '1.2.0'
         );
         wp_register_script(
             'wordpress-idx-search',
             plugin_dir_url(__FILE__) . 'assets/idx-search.js',
             [],
-            '1.1.0',
+            '1.2.0',
             true
         );
     }
@@ -394,7 +396,7 @@ class WordpressIdxSearch {
             'idx-search-admin',
             plugin_dir_url(__FILE__) . 'assets/idx-admin.js',
             [],
-            '1.1.0',
+            '1.2.0',
             true
         );
         wp_localize_script('idx-search-admin', 'idxAdmin', [
