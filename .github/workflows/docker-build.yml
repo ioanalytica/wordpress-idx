@@ -4,6 +4,7 @@ on:
   push:
     tags:
       - '*'
+  workflow_dispatch:      # Allow manual trigger
 
 env:
   REGISTRY: ghcr.io
