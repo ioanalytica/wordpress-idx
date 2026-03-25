@@ -241,4 +241,4 @@ Format: `timestamp ip method url status duration [results=N]`
 
 ## License
 
-ISC
+GPL-3.0 — see [LICENSE](LICENSE)
