@@ -241,4 +241,6 @@ Format: `timestamp ip method url status duration [results=N]`
 
 ## License
 
-GPL-3.0 — see [LICENSE](LICENSE)
+Apache-2.0 — see [LICENSE](LICENSE)
+
+The WordPress plugin (`plugin/`) is separately licensed under GPL-2.0+, as required by WordPress plugin licensing terms.
