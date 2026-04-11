@@ -8,6 +8,7 @@ TAG="$(git describe --tags --abbrev=0 2>/dev/null || true)"
 
 # TAG=0.1.3
 echo "Using tag: $TAG"
+TAG=0.1.10
 
 # Docker tag friendly (no '+')
 PROD_IMAGE="harbor.ioanalytica.com/io/devops/wordpress-idx:${TAG}"
@@ -18,6 +19,6 @@ hadolint Dockerfile
 rm -f source/data/*.bak
 
 echo "Building ${PROD_IMAGE} …"
-docker buildx build --no-cache --platform linux/amd64,linux/arm64 -t ${PROD_IMAGE} . --push
+docker buildx build --no-cache --platform linux/amd64,linux/arm64 -t ${PROD_IMAGE} . --no-cache --push
 
 # end

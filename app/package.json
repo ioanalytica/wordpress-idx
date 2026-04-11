@@ -6,6 +6,9 @@
     "start": "node src/index.js",
     "dev": "node --watch src/index.js"
   },
+  "overrides": {
+    "path-to-regexp": "0.1.13"
+  },
   "dependencies": {
     "cors": "^2.8.6",
     "dotenv": "^16.4.7",
