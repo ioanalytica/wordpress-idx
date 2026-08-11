@@ -69,9 +69,9 @@
     text-align: left;
 }
 
-.idx-search__field input[type="text"],
-.idx-search__field input[type="number"],
-.idx-search__field input[type="date"],
+.idx-search__field input[type='text'],
+.idx-search__field input[type='number'],
+.idx-search__field input[type='date'],
 .idx-search__field select {
     padding: 0.5em 0.6em;
     border: 1px solid #ced4da;
@@ -87,7 +87,7 @@
 .idx-search__field select:focus {
     outline: none;
     border-color: #4a90d9;
-    box-shadow: 0 0 0 2px rgba(74, 144, 217, 0.2);
+    box-shadow: 0 0 0 2px rgb(74 144 217 / 20%);
 }
 
 .idx-search__actions {
@@ -103,9 +103,6 @@
     font-weight: 600;
     cursor: pointer;
     transition: background 0.15s;
-}
-
-.idx-search__btn {
     background: #4a90d9;
     color: #fff;
 }
@@ -164,7 +161,7 @@
 }
 
 .idx-result__summary::before {
-    content: "\25B6";
+    content: '\25B6';
     font-size: 0.65em;
     color: #888;
     transition: transform 0.15s;
@@ -233,7 +230,7 @@
 }
 
 .idx-result__meta span + span::before {
-    content: " \00b7 ";
+    content: ' \00b7 ';
 }
 
 .idx-result__content {
@@ -302,7 +299,7 @@
     color: #666;
 }
 
-@media (max-width: 600px) {
+@media (width <= 600px) {
     .idx-search__field {
         flex: 1 1 100%;
     }
