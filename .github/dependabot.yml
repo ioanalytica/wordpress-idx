@@ -13,6 +13,30 @@ updates:
           - "minor"
           - "patch"
 
+  # Plugin dev tooling (JS/CSS linters)
+  - package-ecosystem: "npm"
+    directory: "/plugin/wordpress-idx-search"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 10
+    groups:
+      plugin-assets-minor-and-patch:
+        update-types:
+          - "minor"
+          - "patch"
+
+  # Plugin dev tooling (PHP: PHPUnit, PHPCS)
+  - package-ecosystem: "composer"
+    directory: "/plugin/wordpress-idx-search"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 10
+    groups:
+      plugin-php-minor-and-patch:
+        update-types:
+          - "minor"
+          - "patch"
+
   # GitHub Actions used in workflows
   - package-ecosystem: "github-actions"
     directory: "/"

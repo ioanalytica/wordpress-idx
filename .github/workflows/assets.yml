@@ -1,0 +1,28 @@
+name: Plugin (assets)
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  lint:
+    name: ESLint + Stylelint + Prettier
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: plugin/wordpress-idx-search
+    steps:
+      - uses: actions/checkout@v4.2.2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: plugin/wordpress-idx-search/package-lock.json
+      - name: Install dependencies
+        run: npm ci
+      - name: ESLint + Stylelint
+        run: npm run lint
+      - name: Prettier formatting check
+        run: npm run format:check

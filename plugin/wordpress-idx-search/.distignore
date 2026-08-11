@@ -1,6 +1,8 @@
 # Files excluded from the distributed (wordpress.org) plugin package.
 /.distignore
 /.gitignore
+
+# PHP dev tooling
 /composer.json
 /composer.lock
 /phpunit.xml.dist
@@ -8,3 +10,10 @@
 /bin
 /tests
 /vendor
+
+# JS/CSS dev tooling
+/package.json
+/package-lock.json
+/eslint.config.js
+/stylelint.config.js
+/node_modules

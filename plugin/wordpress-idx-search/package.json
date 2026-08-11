@@ -1,0 +1,27 @@
+{
+  "name": "wordpress-idx-search-assets",
+  "version": "1.3.0",
+  "description": "Dev tooling (lint/format) for the WordPress IDX Search plugin assets.",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "lint": "npm run lint:js && npm run lint:css",
+    "lint:js": "eslint assets",
+    "lint:css": "stylelint \"assets/**/*.css\"",
+    "format": "prettier --write assets",
+    "format:check": "prettier --check assets"
+  },
+  "prettier": {
+    "tabWidth": 4,
+    "singleQuote": true
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.0.0",
+    "eslint": "^9.0.0",
+    "eslint-config-prettier": "^9.1.0",
+    "globals": "^15.0.0",
+    "prettier": "^3.2.0",
+    "stylelint": "^16.0.0",
+    "stylelint-config-standard": "^36.0.0"
+  }
+}
