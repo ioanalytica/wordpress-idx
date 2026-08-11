@@ -35,10 +35,11 @@ class WordpressIdxSearch {
 	const OPTION_LANG    = 'idx_search_language';
 	const OPTION_API_KEY = 'idx_search_api_key';
 
-	// Host of the "Update URI" header — names the update_plugins_{host} filter
-	// and keeps WordPress from checking wordpress.org for this plugin.
+	// UPDATE_HOST is the host of the "Update URI" header — it names the
+	// update_plugins_{host} filter and keeps WordPress from checking
+	// wordpress.org for this plugin. TRANSIENT_INFO caches the sidecar's
+	// update manifest for a short while.
 	const UPDATE_HOST    = 'ioanalytica.com';
-	// Short-lived cache of the sidecar's update manifest.
 	const TRANSIENT_INFO = 'idx_search_update_info';
 
 	private static $strings = array(
