@@ -1,0 +1,51 @@
+<?xml version="1.0"?>
+<ruleset name="WordPress IDX Search">
+	<description>Coding standards for the WordPress IDX Search plugin.</description>
+
+	<!-- What to scan -->
+	<file>.</file>
+	<exclude-pattern>*/vendor/*</exclude-pattern>
+	<exclude-pattern>*/tests/*</exclude-pattern>
+	<exclude-pattern>*/bin/*</exclude-pattern>
+
+	<!-- How to scan: only PHP, show sniff codes and progress, use colors -->
+	<arg name="extensions" value="php"/>
+	<arg name="colors"/>
+	<arg value="sp"/>
+	<arg name="parallel" value="8"/>
+
+	<!-- WordPress coding standards (Extra = Core + best practices + security,
+	     without the strict inline-documentation requirements of WordPress-Docs). -->
+	<rule ref="WordPress-Extra"/>
+
+	<!-- The main plugin file legitimately holds the bootstrap class. -->
+	<rule ref="WordPress.Files.FileName.InvalidClassFileName">
+		<exclude-pattern>wordpress-idx-search.php</exclude-pattern>
+	</rule>
+
+	<!-- Enforce the plugin text domain -->
+	<rule ref="WordPress.WP.I18n">
+		<properties>
+			<property name="text_domain" type="array">
+				<element value="wordpress-idx-search"/>
+			</property>
+		</properties>
+	</rule>
+
+	<!-- Accepted global prefixes for this plugin -->
+	<rule ref="WordPress.NamingConventions.PrefixAllGlobals">
+		<properties>
+			<property name="prefixes" type="array">
+				<element value="WordpressIdxSearch"/>
+				<element value="idx_search"/>
+			</property>
+		</properties>
+	</rule>
+
+	<!-- Target PHP 7.4+ for compatibility checks -->
+	<config name="testVersion" value="7.4-"/>
+	<rule ref="PHPCompatibilityWP"/>
+
+	<!-- Minimum supported WordPress version (matches readme "Requires at least") -->
+	<config name="minimum_wp_version" value="5.0"/>
+</ruleset>

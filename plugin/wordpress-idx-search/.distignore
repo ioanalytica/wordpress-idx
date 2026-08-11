@@ -1,0 +1,10 @@
+# Files excluded from the distributed (wordpress.org) plugin package.
+/.distignore
+/.gitignore
+/composer.json
+/composer.lock
+/phpunit.xml.dist
+/phpcs.xml.dist
+/bin
+/tests
+/vendor

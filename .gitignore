@@ -6,7 +6,9 @@
 !.github
 !.env.example
 !.planning.md
+!.distignore
 
 node_modules/
+vendor/
 data/
 work/
