@@ -8,6 +8,7 @@
  * License: GPLv2 or later
  * License URI: https://www.gnu.org/licenses/gpl-2.0.html
  * Text Domain: wordpress-idx-search
+ * Update URI: https://ioanalytica.com/wordpress-idx-search
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -33,6 +34,12 @@ class WordpressIdxSearch {
 	const MARKER         = '<!-- wordpress-idx-search -->';
 	const OPTION_LANG    = 'idx_search_language';
 	const OPTION_API_KEY = 'idx_search_api_key';
+
+	// Host of the "Update URI" header — names the update_plugins_{host} filter
+	// and keeps WordPress from checking wordpress.org for this plugin.
+	const UPDATE_HOST    = 'ioanalytica.com';
+	// Short-lived cache of the sidecar's update manifest.
+	const TRANSIENT_INFO = 'idx_search_update_info';
 
 	private static $strings = array(
 		'de' => array(
@@ -224,6 +231,11 @@ class WordpressIdxSearch {
 		add_action( 'admin_init', array( $this, 'register_settings' ) );
 		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_admin_assets' ) );
 		add_action( 'wp_ajax_idx_reindex', array( $this, 'ajax_reindex' ) );
+
+		// Self-hosted updates served by the wordpress-idx sidecar.
+		add_filter( 'update_plugins_' . self::UPDATE_HOST, array( $this, 'check_for_update' ), 10, 3 );
+		add_filter( 'auto_update_plugin', array( $this, 'maybe_auto_update' ), 10, 2 );
+		add_action( 'upgrader_process_complete', array( $this, 'flush_update_cache' ), 10, 2 );
 	}
 
 	private function get_lang() {
@@ -508,6 +520,94 @@ class WordpressIdxSearch {
 			wp_send_json_success( $body );
 		} else {
 			wp_send_json_error( isset( $body['error'] ) ? $body['error'] : "HTTP $code" );
+		}
+	}
+
+	// ── Self-hosted updates ─────────────────────────────────
+
+	/**
+	 * Base URL of the wordpress-idx sidecar (same origin as the search API's
+	 * `/idx` calls). Overridable via the WORDPRESS_IDX_BASE constant.
+	 */
+	private function api_base() {
+		if ( defined( 'WORDPRESS_IDX_BASE' ) && WORDPRESS_IDX_BASE ) {
+			return rtrim( WORDPRESS_IDX_BASE, '/' );
+		}
+		return site_url( '/idx' );
+	}
+
+	/**
+	 * Fetch (and briefly cache) the sidecar's plugin update manifest.
+	 */
+	private function fetch_update_info() {
+		$cached = get_transient( self::TRANSIENT_INFO );
+		if ( is_array( $cached ) ) {
+			return $cached;
+		}
+
+		$response = wp_remote_get(
+			$this->api_base() . '/plugin/update-info.json',
+			array( 'timeout' => 10 )
+		);
+
+		if ( is_wp_error( $response ) || 200 !== wp_remote_retrieve_response_code( $response ) ) {
+			// Cache the miss briefly so a down sidecar doesn't stall every update check.
+			set_transient( self::TRANSIENT_INFO, array(), 15 * MINUTE_IN_SECONDS );
+			return array();
+		}
+
+		$info = json_decode( wp_remote_retrieve_body( $response ), true );
+		if ( ! is_array( $info ) ) {
+			$info = array();
+		}
+		set_transient( self::TRANSIENT_INFO, $info, 6 * HOUR_IN_SECONDS );
+		return $info;
+	}
+
+	/**
+	 * "Update URI" hook: advertise the plugin build the sidecar currently ships.
+	 * WordPress compares versions itself and only offers an update when newer.
+	 */
+	public function check_for_update( $update, $plugin_data, $plugin_file ) {
+		if ( plugin_basename( __FILE__ ) !== $plugin_file ) {
+			return $update;
+		}
+
+		$info = $this->fetch_update_info();
+		if ( empty( $info['version'] ) ) {
+			return $update;
+		}
+
+		return array(
+			'slug'         => 'wordpress-idx-search',
+			'version'      => $info['version'],
+			'new_version'  => $info['version'],
+			'url'          => 'https://ioanalytica.com',
+			'package'      => $this->api_base() . '/plugin/wordpress-idx-search.zip',
+			'requires'     => isset( $info['requires'] ) ? $info['requires'] : '',
+			'requires_php' => isset( $info['requires_php'] ) ? $info['requires_php'] : '',
+			'tested'       => isset( $info['tested'] ) ? $info['tested'] : '',
+		);
+	}
+
+	/**
+	 * Honor the sidecar's auto_update flag (chart value idx.pluginAutoUpdate) for
+	 * this plugin only; every other plugin's policy is left untouched.
+	 */
+	public function maybe_auto_update( $update, $item ) {
+		if ( isset( $item->plugin ) && plugin_basename( __FILE__ ) === $item->plugin ) {
+			$info = $this->fetch_update_info();
+			return isset( $info['auto_update'] ) ? (bool) $info['auto_update'] : true;
+		}
+		return $update;
+	}
+
+	/**
+	 * Drop the cached manifest after any plugin update so the next check is fresh.
+	 */
+	public function flush_update_cache( $upgrader, $data ) {
+		if ( isset( $data['type'] ) && 'plugin' === $data['type'] ) {
+			delete_transient( self::TRANSIENT_INFO );
 		}
 	}
 }

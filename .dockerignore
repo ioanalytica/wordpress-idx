@@ -9,3 +9,19 @@
 **/.env
 data/
 **/node_modules/
+
+# WordPress plugin: keep dev-only files out of the packaged plugin (mirrors
+# plugin/.distignore). Scoped to the plugin dir so app/package*.json is unaffected.
+plugin/wordpress-idx-search/vendor/
+plugin/wordpress-idx-search/bin/
+plugin/wordpress-idx-search/tests/
+plugin/wordpress-idx-search/composer.json
+plugin/wordpress-idx-search/composer.lock
+plugin/wordpress-idx-search/phpunit.xml.dist
+plugin/wordpress-idx-search/phpcs.xml.dist
+plugin/wordpress-idx-search/.phpunit.result.cache
+plugin/wordpress-idx-search/package.json
+plugin/wordpress-idx-search/package-lock.json
+plugin/wordpress-idx-search/eslint.config.js
+plugin/wordpress-idx-search/stylelint.config.js
+plugin/wordpress-idx-search/.distignore

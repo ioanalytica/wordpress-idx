@@ -9,6 +9,7 @@ import { testConnection } from './db.js';
 import { buildSourceFile } from './indexer.js';
 import { createSearchRouter } from './searcher.js';
 import { createReindexRouter } from './reindex.js';
+import { createPluginRouter } from './plugin.js';
 
 const app = express();
 app.use(cors({ origin: process.env.CORS_ORIGIN || '*' }));
@@ -97,6 +98,9 @@ async function loadIndex() {
 
 // Mount reindex endpoint
 baseRouter.use(createReindexRouter(loadIndex));
+
+// Serve the bundled WordPress plugin + update manifest (self-hosted auto-updates)
+baseRouter.use(createPluginRouter());
 
 // Mount all routes under basePath (empty string for local dev, /idx in k8s)
 app.use(config.basePath || '/', baseRouter);

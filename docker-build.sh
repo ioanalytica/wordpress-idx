@@ -31,7 +31,7 @@ TAG="${RAW//+/-}"
 
 echo "Using tag: $TAG"
 
-PROD_IMAGE="harbor.ioanalytica.com/io/devops/wordpress-idx:${TAG}"
+PROD_IMAGE="ghcr.io/ioanalytica/wordpress-idx:${TAG}"
 
 # Mode label: push builds multi-arch, local builds host-arch only (--load cannot
 # load a multi-arch manifest list into the local Docker daemon).

@@ -6,6 +6,17 @@ COPY app/package*.json ./
 RUN npm ci --omit=dev
 COPY app/ ./
 
+# Package the WordPress plugin so the sidecar can serve it for auto-updates.
+# Dev-only files are kept out of the build context via .dockerignore, so the
+# copied tree is already the distributable plugin.
+# hadolint ignore=DL3007
+FROM alpine:3 AS plugin
+# hadolint ignore=DL3018
+RUN apk add --no-cache zip
+WORKDIR /build
+COPY plugin/wordpress-idx-search/ ./wordpress-idx-search/
+RUN zip -r -X /wordpress-idx-search.zip wordpress-idx-search
+
 # hadolint ignore=DL3007
 FROM node:26-alpine
 # hadolint ignore=DL3018
@@ -14,6 +25,7 @@ RUN npm uninstall -g npm corepack && rm -rf /usr/local/lib/node_modules /opt/yar
 RUN mkdir -p /idx && chown node:node /idx
 WORKDIR /app
 COPY --from=build --chown=node:node /app .
+COPY --from=plugin --chown=node:node /wordpress-idx-search.zip /app/wordpress-idx-search.zip
 USER node
 EXPOSE 3000
 CMD ["node", "src/index.js"]
