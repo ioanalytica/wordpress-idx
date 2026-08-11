@@ -1,57 +1,60 @@
 version: 2
 updates:
-  # Node.js sidecar application
+  # ── Runtime (weekly, majors reviewed individually) ──────────────
+
+  # Node.js sidecar application (express, mysql2, flexsearch, …).
+  # Minor/patch are grouped; majors get their own PR for review.
   - package-ecosystem: "npm"
     directory: "/app"
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 10
     groups:
-      # Bundle non-major updates into a single PR to reduce noise
-      app-minor-and-patch:
+      app-runtime-minor-and-patch:
         update-types:
           - "minor"
           - "patch"
 
-  # Plugin dev tooling (JS/CSS linters)
-  - package-ecosystem: "npm"
-    directory: "/plugin/wordpress-idx-search"
-    schedule:
-      interval: "weekly"
-    open-pull-requests-limit: 10
-    groups:
-      plugin-assets-minor-and-patch:
-        update-types:
-          - "minor"
-          - "patch"
-
-  # Plugin dev tooling (PHP: PHPUnit, PHPCS)
-  - package-ecosystem: "composer"
-    directory: "/plugin/wordpress-idx-search"
-    schedule:
-      interval: "weekly"
-    open-pull-requests-limit: 10
-    groups:
-      plugin-php-minor-and-patch:
-        update-types:
-          - "minor"
-          - "patch"
-
-  # GitHub Actions used in workflows
-  - package-ecosystem: "github-actions"
-    directory: "/"
-    schedule:
-      interval: "weekly"
-    open-pull-requests-limit: 10
-    groups:
-      actions-minor-and-patch:
-        update-types:
-          - "minor"
-          - "patch"
-
-  # Base image in the Dockerfile
+  # Base image in the Dockerfile (the actual runtime).
   - package-ecosystem: "docker"
     directory: "/"
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 10
+
+  # ── Dev / CI tooling (monthly, everything in one grouped PR) ─────
+  # These have no runtime impact, so bundle every update — including
+  # majors — into a single low-cadence PR instead of many.
+
+  # Plugin JS/CSS linters (ESLint, Stylelint, Prettier).
+  - package-ecosystem: "npm"
+    directory: "/plugin/wordpress-idx-search"
+    schedule:
+      interval: "monthly"
+    open-pull-requests-limit: 5
+    groups:
+      plugin-assets-tooling:
+        patterns:
+          - "*"
+
+  # Plugin PHP dev tooling (PHPUnit, PHPCS/WPCS, polyfills).
+  - package-ecosystem: "composer"
+    directory: "/plugin/wordpress-idx-search"
+    schedule:
+      interval: "monthly"
+    open-pull-requests-limit: 5
+    groups:
+      plugin-php-tooling:
+        patterns:
+          - "*"
+
+  # GitHub Actions used across the CI workflows.
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+    open-pull-requests-limit: 5
+    groups:
+      github-actions:
+        patterns:
+          - "*"
