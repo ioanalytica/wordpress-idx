@@ -14,7 +14,7 @@ jobs:
       run:
         working-directory: plugin/wordpress-idx-search
     steps:
-      - uses: actions/checkout@v4.2.2
+      - uses: actions/checkout@v7.0.1
       - uses: actions/setup-node@v4
         with:
           node-version: "24"

@@ -11,7 +11,7 @@ jobs:
     name: Version SSOT check
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4.2.2
+      - uses: actions/checkout@v7.0.1
       - name: Plugin version matches app/package.json
         run: bash scripts/sync-version.sh --check
 
@@ -22,7 +22,7 @@ jobs:
       run:
         working-directory: plugin/wordpress-idx-search
     steps:
-      - uses: actions/checkout@v4.2.2
+      - uses: actions/checkout@v7.0.1
       - uses: shivammathur/setup-php@v2
         with:
           php-version: "8.2"
@@ -56,7 +56,7 @@ jobs:
       run:
         working-directory: plugin/wordpress-idx-search
     steps:
-      - uses: actions/checkout@v4.2.2
+      - uses: actions/checkout@v7.0.1
       - uses: shivammathur/setup-php@v2
         with:
           php-version: ${{ matrix.php }}
