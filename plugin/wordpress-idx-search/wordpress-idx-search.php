@@ -2,7 +2,7 @@
 /**
  * Plugin Name: WordPress IDX Search
  * Description: Full-text search interface for the wordpress-idx sidecar API. Use the HTML comment &lt;!-- wordpress-idx-search --&gt; in any post or page to render the search form.
- * Version: 1.3.0
+ * Version: 1.3.1
  * Author: IO ANALYTICA
  * Author URI: https://ioanalytica.com
  * License: GPLv2 or later
@@ -29,7 +29,7 @@ class WordpressIdxSearch {
 
 	// Keep in sync with the plugin header "Version:" and readme.txt "Stable tag:".
 	// The single source of truth is app/package.json; run scripts/sync-version.sh.
-	const VERSION = '1.3.0';
+	const VERSION = '1.3.1';
 
 	const MARKER         = '<!-- wordpress-idx-search -->';
 	const OPTION_LANG    = 'idx_search_language';
