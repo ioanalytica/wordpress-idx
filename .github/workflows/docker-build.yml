@@ -21,6 +21,23 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7.0.1
 
+      # A release cut from a tree where the plugin version lags behind
+      # app/package.json ships a manifest that advertises an update the package
+      # does not contain, leaving WordPress in a permanent update loop.
+      - name: Plugin version is in sync
+        run: bash scripts/sync-version.sh --check
+
+      - name: Tag matches the version in app/package.json
+        run: |
+          tag="${GITHUB_REF#refs/tags/}"
+          version="$(grep -m1 -E '"version"[[:space:]]*:' app/package.json \
+            | sed -E 's/.*"version"[[:space:]]*:[[:space:]]*"([^"]+)".*/\1/')"
+          if [ "$tag" != "$version" ]; then
+            echo "ERROR: tag '$tag' does not match app/package.json version '$version'." >&2
+            exit 1
+          fi
+          echo "Tag and version agree: $tag"
+
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v4.2.0
 

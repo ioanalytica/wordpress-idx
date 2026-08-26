@@ -1,11 +1,23 @@
 import { resolve } from 'node:path';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import 'dotenv/config';
 
-// package.json is the single source of truth for the version — of both this
-// service and the WordPress plugin it ships (scripts/sync-version.sh keeps the
-// plugin files in lockstep). The plugin update endpoint advertises this value.
+// package.json is the single source of truth for the repo version — of both
+// this service and the WordPress plugin it ships (scripts/sync-version.sh keeps
+// the plugin files in lockstep). Note the plugin update manifest deliberately
+// does NOT use this value; it reads the packaged plugin's own header instead.
 const pkg = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf-8'));
+
+// The plugin tree that was zipped into the image (see Dockerfile), falling back
+// to the repo checkout when running from source.
+function defaultPluginSrc() {
+  const candidates = [
+    '/app/plugin-src',
+    fileURLToPath(new URL('../../plugin/wordpress-idx-search', import.meta.url)),
+  ];
+  return candidates.find(existsSync) || candidates[0];
+}
 
 const config = {
   db: {
@@ -22,9 +34,11 @@ const config = {
   dataDir: resolve(process.env.DATA_DIR || '/data'),
   basePath: process.env.BASE_PATH || '',
   startupDelay: parseInt(process.env.STARTUP_DELAY, 10) || 0,
+  // Version of this service; the plugin manifest uses the plugin's own header.
+  version: pkg.version,
   // Bundled WordPress plugin, served for self-hosted auto-updates.
-  pluginVersion: pkg.version,
   pluginZipPath: resolve(process.env.PLUGIN_ZIP_PATH || '/app/wordpress-idx-search.zip'),
+  pluginSrcPath: resolve(process.env.PLUGIN_SRC_PATH || defaultPluginSrc()),
   // Whether the plugin should install its updates automatically. Default true;
   // the chart exposes this as idx.pluginAutoUpdate and passes PLUGIN_AUTO_UPDATE.
   pluginAutoUpdate: process.env.PLUGIN_AUTO_UPDATE !== 'false',

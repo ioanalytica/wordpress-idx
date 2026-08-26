@@ -26,6 +26,9 @@ RUN mkdir -p /idx && chown node:node /idx
 WORKDIR /app
 COPY --from=build --chown=node:node /app .
 COPY --from=plugin --chown=node:node /wordpress-idx-search.zip /app/wordpress-idx-search.zip
+# Same tree the zip was built from — the update manifest reads its version and
+# compatibility headers from here, so the two can never disagree.
+COPY --from=plugin --chown=node:node /build/wordpress-idx-search /app/plugin-src
 USER node
 EXPOSE 3000
 CMD ["node", "src/index.js"]
