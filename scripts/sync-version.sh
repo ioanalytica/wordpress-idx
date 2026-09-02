@@ -9,6 +9,7 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PKG="$ROOT/app/package.json"
+LOCK="$ROOT/app/package-lock.json"
 PLUGIN_PHP="$ROOT/plugin/wordpress-idx-search/wordpress-idx-search.php"
 README="$ROOT/plugin/wordpress-idx-search/readme.txt"
 
@@ -36,12 +37,23 @@ sed_i() {
   fi
 }
 
+# The two root "version" fields of a lockfileVersion 3 file: the top-level one
+# and packages."". They are the first two occurrences in the file; everything
+# after them belongs to dependencies.
+lock_versions() {
+  grep -E '^[[:space:]]*"version":' "$LOCK" | head -2 | sed -E 's/.*"version":[[:space:]]*"([^"]+)".*/\1/'
+}
+
 # Print files whose version does not match, without modifying them.
 drift() {
   local mismatch=0
   grep -qE "^ \* Version: ${VERSION}$"                "$PLUGIN_PHP" || { echo "  plugin header out of sync"; mismatch=1; }
   grep -qE "const VERSION = '${VERSION}';"            "$PLUGIN_PHP" || { echo "  plugin VERSION constant out of sync"; mismatch=1; }
   grep -qE "^Stable tag: ${VERSION}$"                 "$README"     || { echo "  readme Stable tag out of sync"; mismatch=1; }
+  # npm ci does not validate the root version field, so drift here is silent.
+  while read -r v; do
+    [ "$v" = "$VERSION" ] || { echo "  app/package-lock.json out of sync (found ${v})"; mismatch=1; }
+  done < <(lock_versions)
   return $mismatch
 }
 
@@ -50,14 +62,27 @@ if [ "$CHECK" = "1" ]; then
   if drift; then
     echo "Plugin version is in sync."
   else
-    echo "ERROR: plugin version is out of sync. Run scripts/sync-version.sh." >&2
+    echo "ERROR: version is out of sync. Run scripts/sync-version.sh." >&2
     exit 1
   fi
   exit 0
 fi
 
-echo "Syncing plugin version to $VERSION …"
+echo "Syncing version to $VERSION …"
 sed_i "s/^ \* Version: .*/ * Version: ${VERSION}/"                 "$PLUGIN_PHP"
 sed_i "s/const VERSION = '[^']*';/const VERSION = '${VERSION}';/"  "$PLUGIN_PHP"
 sed_i "s/^Stable tag: .*/Stable tag: ${VERSION}/"                  "$README"
+
+# Rewrite only the first two "version" lines — the lockfile's own root fields.
+# npm would do this via `npm version`, but the script must also work without npm
+# (e.g. in the CI job that only checks out the repo).
+awk -v ver="$VERSION" '
+  BEGIN { n = 0 }
+  n < 2 && /^[[:space:]]*"version":[[:space:]]*"[^"]*",?[[:space:]]*$/ {
+    sub(/"version":[[:space:]]*"[^"]*"/, "\"version\": \"" ver "\"")
+    n++
+  }
+  { print }
+' "$LOCK" > "$LOCK.tmp" && mv "$LOCK.tmp" "$LOCK"
+
 echo "Done."
