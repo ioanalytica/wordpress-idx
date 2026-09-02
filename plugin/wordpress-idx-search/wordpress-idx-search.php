@@ -2,7 +2,7 @@
 /**
  * Plugin Name: WordPress IDX Search
  * Description: Full-text search interface for the wordpress-idx sidecar API. Use the HTML comment &lt;!-- wordpress-idx-search --&gt; in any post or page to render the search form.
- * Version: 1.3.3
+ * Version: 1.3.4
  * Author: IO ANALYTICA
  * Author URI: https://ioanalytica.com
  * License: GPLv2 or later
@@ -29,7 +29,7 @@ class WordpressIdxSearch {
 
 	// Keep in sync with the plugin header "Version:" and readme.txt "Stable tag:".
 	// The single source of truth is app/package.json; run scripts/sync-version.sh.
-	const VERSION = '1.3.3';
+	const VERSION = '1.3.4';
 
 	const MARKER         = '<!-- wordpress-idx-search -->';
 	const OPTION_LANG    = 'idx_search_language';
@@ -258,6 +258,15 @@ class WordpressIdxSearch {
 		add_filter( 'update_plugins_' . self::UPDATE_HOST, array( $this, 'check_for_update' ), 10, 3 );
 		add_filter( 'auto_update_plugin', array( $this, 'maybe_auto_update' ), 10, 2 );
 		add_action( 'upgrader_process_complete', array( $this, 'flush_update_cache' ), 10, 2 );
+
+		// The update package is fetched with download_url(), which validates
+		// URLs stricter than the update check above: loopback hosts and the
+		// sidecar's port are not on its default allow list, so installing the
+		// offered update failed with "A valid URL was not provided". These two
+		// core filters admit the sidecar's own base URL - and nothing else -
+		// to that allow list (see the methods next to api_base()).
+		add_filter( 'http_request_host_is_external', array( $this, 'allow_sidecar_host' ), 10, 3 );
+		add_filter( 'http_allowed_safe_ports', array( $this, 'allow_sidecar_port' ), 10, 3 );
 	}
 
 	private function get_lang() {
@@ -562,6 +571,38 @@ class WordpressIdxSearch {
 			return rtrim( WORDPRESS_IDX_BASE, '/' );
 		}
 		return site_url( '/idx' );
+	}
+
+	/**
+	 * Whether a URL points into the sidecar's own base. Full-prefix match, so
+	 * scheme, host, port and path prefix all have to agree.
+	 */
+	private function is_sidecar_url( $url ) {
+		$base = $this->api_base();
+		return $url === $base || 0 === strpos( (string) $url, $base . '/' );
+	}
+
+	/**
+	 * wp_http_validate_url() refuses hosts that look local (127.0.0.1 included)
+	 * unless this filter vouches for them. Vouch for the sidecar base only.
+	 */
+	public function allow_sidecar_host( $external, $host, $url ) {
+		return $external || $this->is_sidecar_url( $url );
+	}
+
+	/**
+	 * The same validation restricts requests to ports 80/443/8080; the sidecar
+	 * listens elsewhere (3000 by default). Add its port for its own URLs only.
+	 */
+	public function allow_sidecar_port( $allowed_ports, $host, $url ) {
+		if ( ! is_array( $allowed_ports ) || ! $this->is_sidecar_url( $url ) ) {
+			return $allowed_ports;
+		}
+		$port = wp_parse_url( $this->api_base(), PHP_URL_PORT );
+		if ( $port && ! in_array( $port, $allowed_ports, true ) ) {
+			$allowed_ports[] = $port;
+		}
+		return $allowed_ports;
 	}
 
 	/**
