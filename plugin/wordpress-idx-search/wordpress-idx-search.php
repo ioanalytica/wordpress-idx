@@ -39,189 +39,210 @@ class WordpressIdxSearch {
 	// update_plugins_{host} filter and keeps WordPress from checking
 	// wordpress.org for this plugin. TRANSIENT_INFO caches the sidecar's
 	// update manifest for a short while.
-	const UPDATE_HOST    = 'ioanalytica.com';
-	const TRANSIENT_INFO = 'idx_search_update_info';
+	const UPDATE_HOST     = 'ioanalytica.com';
+	const TRANSIENT_INFO  = 'idx_search_update_info';
+	const TRANSIENT_ERROR = 'idx_search_update_error';
 
 	private static $strings = array(
 		'de' => array(
-			'loading'             => 'Index wird geladen…',
-			'unreachable'         => 'Index nicht erreichbar: ',
-			'fulltext'            => 'Volltextsuche',
-			'placeholder'         => 'Suchbegriff…',
-			'type'                => 'Typ',
-			'all'                 => 'Alle',
-			'posts'               => 'Beiträge',
-			'pages'               => 'Seiten',
-			'author'              => 'Autor',
-			'category'            => 'Kategorie',
-			'tag'                 => 'Schlagwort',
-			'from'                => 'Von',
-			'to'                  => 'Bis',
-			'limit'               => 'Max. Ergebnisse',
-			'unlimited'           => 'unbegrenzt',
-			'context'             => 'Nur Kontextausschnitt anzeigen',
-			'comments'            => 'Kommentare durchsuchen',
-			'search'              => 'Suchen',
-			'reset'               => 'Zurücksetzen',
-			'searching'           => 'Suche läuft…',
-			'no_results'          => 'Keine Ergebnisse gefunden.',
-			'hits'                => 'Treffer',
-			'showing'             => 'zeige',
-			'entries'             => 'Einträge',
-			'words'               => 'Wörter',
-			'to_date'             => 'bis',
-			'post'                => 'Beitrag',
-			'page'                => 'Seite',
-			'comment'             => 'Kommentar',
-			'comment_plural'      => 'Kommentare',
-			'error'               => 'Fehler: ',
-			'locale'              => 'de-DE',
+			'loading'                  => 'Index wird geladen…',
+			'unreachable'              => 'Index nicht erreichbar: ',
+			'fulltext'                 => 'Volltextsuche',
+			'placeholder'              => 'Suchbegriff…',
+			'type'                     => 'Typ',
+			'all'                      => 'Alle',
+			'posts'                    => 'Beiträge',
+			'pages'                    => 'Seiten',
+			'author'                   => 'Autor',
+			'category'                 => 'Kategorie',
+			'tag'                      => 'Schlagwort',
+			'from'                     => 'Von',
+			'to'                       => 'Bis',
+			'limit'                    => 'Max. Ergebnisse',
+			'unlimited'                => 'unbegrenzt',
+			'context'                  => 'Nur Kontextausschnitt anzeigen',
+			'comments'                 => 'Kommentare durchsuchen',
+			'search'                   => 'Suchen',
+			'reset'                    => 'Zurücksetzen',
+			'searching'                => 'Suche läuft…',
+			'no_results'               => 'Keine Ergebnisse gefunden.',
+			'hits'                     => 'Treffer',
+			'showing'                  => 'zeige',
+			'entries'                  => 'Einträge',
+			'words'                    => 'Wörter',
+			'to_date'                  => 'bis',
+			'post'                     => 'Beitrag',
+			'page'                     => 'Seite',
+			'comment'                  => 'Kommentar',
+			'comment_plural'           => 'Kommentare',
+			'error'                    => 'Fehler: ',
+			'locale'                   => 'de-DE',
 			// Admin
-			'admin_language'      => 'Sprache',
-			'admin_api_key'       => 'Reindex API-Schlüssel',
-			'admin_api_key_desc'  => 'API-Schlüssel für',
-			'admin_save'          => 'Änderungen speichern',
-			'admin_reindex_title' => 'Index neu aufbauen',
-			'admin_reindex_btn'   => 'Index neu aufbauen',
-			'admin_reindex_run'   => 'Reindex läuft…',
-			'admin_reindex_done'  => 'Fertig – %s Einträge indexiert.',
-			'admin_reindex_error' => 'Fehler: ',
-			'admin_no_key'        => 'Kein API-Key konfiguriert.',
+			'admin_language'           => 'Sprache',
+			'admin_api_key'            => 'Reindex API-Schlüssel',
+			'admin_api_key_desc'       => 'API-Schlüssel für',
+			'admin_save'               => 'Änderungen speichern',
+			'admin_reindex_title'      => 'Index neu aufbauen',
+			'admin_reindex_btn'        => 'Index neu aufbauen',
+			'admin_reindex_run'        => 'Reindex läuft…',
+			'admin_reindex_done'       => 'Fertig – %s Einträge indexiert.',
+			'admin_reindex_error'      => 'Fehler: ',
+			'admin_no_key'             => 'Kein API-Key konfiguriert.',
+			'admin_update_title'       => 'Plugin-Aktualisierung',
+			'admin_update_installed'   => 'Installiert:',
+			'admin_update_offered'     => 'Sidecar bietet an:',
+			'admin_update_check'       => 'Jetzt nach Updates suchen',
+			'admin_update_unreachable' => 'Der Sidecar liefert derzeit kein Update-Manifest, daher wird kein Update angeboten.',
 		),
 		'en' => array(
-			'loading'             => 'Loading index…',
-			'unreachable'         => 'Index unreachable: ',
-			'fulltext'            => 'Full-text search',
-			'placeholder'         => 'Search term…',
-			'type'                => 'Type',
-			'all'                 => 'All',
-			'posts'               => 'Posts',
-			'pages'               => 'Pages',
-			'author'              => 'Author',
-			'category'            => 'Category',
-			'tag'                 => 'Tag',
-			'from'                => 'From',
-			'to'                  => 'To',
-			'limit'               => 'Max. results',
-			'unlimited'           => 'unlimited',
-			'context'             => 'Show context snippet only',
-			'comments'            => 'Search comments',
-			'search'              => 'Search',
-			'reset'               => 'Reset',
-			'searching'           => 'Searching…',
-			'no_results'          => 'No results found.',
-			'hits'                => 'hits',
-			'showing'             => 'showing',
-			'entries'             => 'entries',
-			'words'               => 'words',
-			'to_date'             => 'to',
-			'post'                => 'Post',
-			'page'                => 'Page',
-			'comment'             => 'comment',
-			'comment_plural'      => 'comments',
-			'error'               => 'Error: ',
-			'locale'              => 'en-US',
+			'loading'                  => 'Loading index…',
+			'unreachable'              => 'Index unreachable: ',
+			'fulltext'                 => 'Full-text search',
+			'placeholder'              => 'Search term…',
+			'type'                     => 'Type',
+			'all'                      => 'All',
+			'posts'                    => 'Posts',
+			'pages'                    => 'Pages',
+			'author'                   => 'Author',
+			'category'                 => 'Category',
+			'tag'                      => 'Tag',
+			'from'                     => 'From',
+			'to'                       => 'To',
+			'limit'                    => 'Max. results',
+			'unlimited'                => 'unlimited',
+			'context'                  => 'Show context snippet only',
+			'comments'                 => 'Search comments',
+			'search'                   => 'Search',
+			'reset'                    => 'Reset',
+			'searching'                => 'Searching…',
+			'no_results'               => 'No results found.',
+			'hits'                     => 'hits',
+			'showing'                  => 'showing',
+			'entries'                  => 'entries',
+			'words'                    => 'words',
+			'to_date'                  => 'to',
+			'post'                     => 'Post',
+			'page'                     => 'Page',
+			'comment'                  => 'comment',
+			'comment_plural'           => 'comments',
+			'error'                    => 'Error: ',
+			'locale'                   => 'en-US',
 			// Admin
-			'admin_language'      => 'Language',
-			'admin_api_key'       => 'Reindex API key',
-			'admin_api_key_desc'  => 'API key for',
-			'admin_save'          => 'Save changes',
-			'admin_reindex_title' => 'Rebuild index',
-			'admin_reindex_btn'   => 'Rebuild index',
-			'admin_reindex_run'   => 'Reindexing…',
-			'admin_reindex_done'  => 'Done – %s entries indexed.',
-			'admin_reindex_error' => 'Error: ',
-			'admin_no_key'        => 'No API key configured.',
+			'admin_language'           => 'Language',
+			'admin_api_key'            => 'Reindex API key',
+			'admin_api_key_desc'       => 'API key for',
+			'admin_save'               => 'Save changes',
+			'admin_reindex_title'      => 'Rebuild index',
+			'admin_reindex_btn'        => 'Rebuild index',
+			'admin_reindex_run'        => 'Reindexing…',
+			'admin_reindex_done'       => 'Done – %s entries indexed.',
+			'admin_reindex_error'      => 'Error: ',
+			'admin_no_key'             => 'No API key configured.',
+			'admin_update_title'       => 'Plugin update',
+			'admin_update_installed'   => 'Installed:',
+			'admin_update_offered'     => 'Sidecar offers:',
+			'admin_update_check'       => 'Check for updates now',
+			'admin_update_unreachable' => 'The sidecar is not serving an update manifest, so no update can be offered.',
 		),
 		'fr' => array(
-			'loading'             => 'Chargement de l\'index…',
-			'unreachable'         => 'Index inaccessible : ',
-			'fulltext'            => 'Recherche plein texte',
-			'placeholder'         => 'Terme de recherche…',
-			'type'                => 'Type',
-			'all'                 => 'Tous',
-			'posts'               => 'Articles',
-			'pages'               => 'Pages',
-			'author'              => 'Auteur',
-			'category'            => 'Catégorie',
-			'tag'                 => 'Étiquette',
-			'from'                => 'Du',
-			'to'                  => 'Au',
-			'limit'               => 'Résultats max.',
-			'unlimited'           => 'illimité',
-			'context'             => 'Afficher uniquement l\'extrait',
-			'comments'            => 'Rechercher dans les commentaires',
-			'search'              => 'Rechercher',
-			'reset'               => 'Réinitialiser',
-			'searching'           => 'Recherche en cours…',
-			'no_results'          => 'Aucun résultat trouvé.',
-			'hits'                => 'résultats',
-			'showing'             => 'affichés',
-			'entries'             => 'entrées',
-			'words'               => 'mots',
-			'to_date'             => 'au',
-			'post'                => 'Article',
-			'page'                => 'Page',
-			'comment'             => 'commentaire',
-			'comment_plural'      => 'commentaires',
-			'error'               => 'Erreur : ',
-			'locale'              => 'fr-FR',
+			'loading'                  => 'Chargement de l\'index…',
+			'unreachable'              => 'Index inaccessible : ',
+			'fulltext'                 => 'Recherche plein texte',
+			'placeholder'              => 'Terme de recherche…',
+			'type'                     => 'Type',
+			'all'                      => 'Tous',
+			'posts'                    => 'Articles',
+			'pages'                    => 'Pages',
+			'author'                   => 'Auteur',
+			'category'                 => 'Catégorie',
+			'tag'                      => 'Étiquette',
+			'from'                     => 'Du',
+			'to'                       => 'Au',
+			'limit'                    => 'Résultats max.',
+			'unlimited'                => 'illimité',
+			'context'                  => 'Afficher uniquement l\'extrait',
+			'comments'                 => 'Rechercher dans les commentaires',
+			'search'                   => 'Rechercher',
+			'reset'                    => 'Réinitialiser',
+			'searching'                => 'Recherche en cours…',
+			'no_results'               => 'Aucun résultat trouvé.',
+			'hits'                     => 'résultats',
+			'showing'                  => 'affichés',
+			'entries'                  => 'entrées',
+			'words'                    => 'mots',
+			'to_date'                  => 'au',
+			'post'                     => 'Article',
+			'page'                     => 'Page',
+			'comment'                  => 'commentaire',
+			'comment_plural'           => 'commentaires',
+			'error'                    => 'Erreur : ',
+			'locale'                   => 'fr-FR',
 			// Admin
-			'admin_language'      => 'Langue',
-			'admin_api_key'       => 'Clé API de réindexation',
-			'admin_api_key_desc'  => 'Clé API pour',
-			'admin_save'          => 'Enregistrer les modifications',
-			'admin_reindex_title' => 'Reconstruire l\'index',
-			'admin_reindex_btn'   => 'Reconstruire l\'index',
-			'admin_reindex_run'   => 'Réindexation en cours…',
-			'admin_reindex_done'  => 'Terminé – %s entrées indexées.',
-			'admin_reindex_error' => 'Erreur : ',
-			'admin_no_key'        => 'Aucune clé API configurée.',
+			'admin_language'           => 'Langue',
+			'admin_api_key'            => 'Clé API de réindexation',
+			'admin_api_key_desc'       => 'Clé API pour',
+			'admin_save'               => 'Enregistrer les modifications',
+			'admin_reindex_title'      => 'Reconstruire l\'index',
+			'admin_reindex_btn'        => 'Reconstruire l\'index',
+			'admin_reindex_run'        => 'Réindexation en cours…',
+			'admin_reindex_done'       => 'Terminé – %s entrées indexées.',
+			'admin_reindex_error'      => 'Erreur : ',
+			'admin_no_key'             => 'Aucune clé API configurée.',
+			'admin_update_title'       => 'Mise à jour de l\'extension',
+			'admin_update_installed'   => 'Installée :',
+			'admin_update_offered'     => 'Le sidecar propose :',
+			'admin_update_check'       => 'Rechercher les mises à jour',
+			'admin_update_unreachable' => 'Le sidecar ne fournit pas de manifeste de mise à jour, aucune mise à jour ne peut être proposée.',
 		),
 		'es' => array(
-			'loading'             => 'Cargando índice…',
-			'unreachable'         => 'Índice no disponible: ',
-			'fulltext'            => 'Búsqueda de texto completo',
-			'placeholder'         => 'Término de búsqueda…',
-			'type'                => 'Tipo',
-			'all'                 => 'Todos',
-			'posts'               => 'Entradas',
-			'pages'               => 'Páginas',
-			'author'              => 'Autor',
-			'category'            => 'Categoría',
-			'tag'                 => 'Etiqueta',
-			'from'                => 'Desde',
-			'to'                  => 'Hasta',
-			'limit'               => 'Máx. resultados',
-			'unlimited'           => 'ilimitado',
-			'context'             => 'Mostrar solo fragmento de contexto',
-			'comments'            => 'Buscar en comentarios',
-			'search'              => 'Buscar',
-			'reset'               => 'Restablecer',
-			'searching'           => 'Buscando…',
-			'no_results'          => 'No se encontraron resultados.',
-			'hits'                => 'resultados',
-			'showing'             => 'mostrando',
-			'entries'             => 'entradas',
-			'words'               => 'palabras',
-			'to_date'             => 'a',
-			'post'                => 'Entrada',
-			'page'                => 'Página',
-			'comment'             => 'comentario',
-			'comment_plural'      => 'comentarios',
-			'error'               => 'Error: ',
-			'locale'              => 'es-ES',
+			'loading'                  => 'Cargando índice…',
+			'unreachable'              => 'Índice no disponible: ',
+			'fulltext'                 => 'Búsqueda de texto completo',
+			'placeholder'              => 'Término de búsqueda…',
+			'type'                     => 'Tipo',
+			'all'                      => 'Todos',
+			'posts'                    => 'Entradas',
+			'pages'                    => 'Páginas',
+			'author'                   => 'Autor',
+			'category'                 => 'Categoría',
+			'tag'                      => 'Etiqueta',
+			'from'                     => 'Desde',
+			'to'                       => 'Hasta',
+			'limit'                    => 'Máx. resultados',
+			'unlimited'                => 'ilimitado',
+			'context'                  => 'Mostrar solo fragmento de contexto',
+			'comments'                 => 'Buscar en comentarios',
+			'search'                   => 'Buscar',
+			'reset'                    => 'Restablecer',
+			'searching'                => 'Buscando…',
+			'no_results'               => 'No se encontraron resultados.',
+			'hits'                     => 'resultados',
+			'showing'                  => 'mostrando',
+			'entries'                  => 'entradas',
+			'words'                    => 'palabras',
+			'to_date'                  => 'a',
+			'post'                     => 'Entrada',
+			'page'                     => 'Página',
+			'comment'                  => 'comentario',
+			'comment_plural'           => 'comentarios',
+			'error'                    => 'Error: ',
+			'locale'                   => 'es-ES',
 			// Admin
-			'admin_language'      => 'Idioma',
-			'admin_api_key'       => 'Clave API de reindexación',
-			'admin_api_key_desc'  => 'Clave API para',
-			'admin_save'          => 'Guardar cambios',
-			'admin_reindex_title' => 'Reconstruir índice',
-			'admin_reindex_btn'   => 'Reconstruir índice',
-			'admin_reindex_run'   => 'Reindexando…',
-			'admin_reindex_done'  => 'Listo – %s entradas indexadas.',
-			'admin_reindex_error' => 'Error: ',
-			'admin_no_key'        => 'No hay clave API configurada.',
+			'admin_language'           => 'Idioma',
+			'admin_api_key'            => 'Clave API de reindexación',
+			'admin_api_key_desc'       => 'Clave API para',
+			'admin_save'               => 'Guardar cambios',
+			'admin_reindex_title'      => 'Reconstruir índice',
+			'admin_reindex_btn'        => 'Reconstruir índice',
+			'admin_reindex_run'        => 'Reindexando…',
+			'admin_reindex_done'       => 'Listo – %s entradas indexadas.',
+			'admin_reindex_error'      => 'Error: ',
+			'admin_no_key'             => 'No hay clave API configurada.',
+			'admin_update_title'       => 'Actualización del plugin',
+			'admin_update_installed'   => 'Instalada:',
+			'admin_update_offered'     => 'El sidecar ofrece:',
+			'admin_update_check'       => 'Buscar actualizaciones ahora',
+			'admin_update_unreachable' => 'El sidecar no está sirviendo un manifiesto de actualización, así que no se puede ofrecer ninguna.',
 		),
 	);
 
@@ -485,6 +506,10 @@ class WordpressIdxSearch {
 				<button type="button" id="idx-reindex-btn" class="button button-secondary"><?php echo esc_html( $t['admin_reindex_btn'] ); ?></button>
 				<span id="idx-reindex-status"></span>
 			</p>
+
+			<hr>
+			<h2><?php echo esc_html( $t['admin_update_title'] ); ?></h2>
+			<?php $this->render_update_status( $t ); ?>
 		</div>
 		<?php
 	}
@@ -502,8 +527,10 @@ class WordpressIdxSearch {
 			wp_send_json_error( $t['admin_no_key'] );
 		}
 
+		// Server-side call, so it must honour WORDPRESS_IDX_BASE like the update
+		// check does: a pod that cannot reach its own public URL would time out.
 		$response = wp_remote_post(
-			site_url( '/idx/api/reindex' ),
+			$this->api_base() . '/api/reindex',
 			array(
 				'headers' => array( 'Authorization' => 'Bearer ' . $api_key ),
 				'timeout' => 120,
@@ -538,12 +565,27 @@ class WordpressIdxSearch {
 	}
 
 	/**
-	 * Fetch (and briefly cache) the sidecar's plugin update manifest.
+	 * True when the admin asked WordPress for a fresh update check ("Check
+	 * again" on the Updates screen). Reading core's own flag, not form input.
 	 */
-	private function fetch_update_info() {
-		$cached = get_transient( self::TRANSIENT_INFO );
-		if ( is_array( $cached ) ) {
-			return $cached;
+	private function is_force_check() {
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only flag set by core's update screen.
+		return ! empty( $_GET['force-check'] );
+	}
+
+	/**
+	 * Fetch (and briefly cache) the sidecar's plugin update manifest.
+	 *
+	 * A forced check must bypass the cache: otherwise a stale manifest — or the
+	 * short "miss" entry written when the sidecar was unreachable — keeps the
+	 * plugin reporting "no update" with no way for an admin to refresh it.
+	 */
+	private function fetch_update_info( $force = false ) {
+		if ( ! $force ) {
+			$cached = get_transient( self::TRANSIENT_INFO );
+			if ( is_array( $cached ) ) {
+				return $cached;
+			}
 		}
 
 		$response = wp_remote_get(
@@ -551,7 +593,15 @@ class WordpressIdxSearch {
 			array( 'timeout' => 10 )
 		);
 
-		if ( is_wp_error( $response ) || 200 !== wp_remote_retrieve_response_code( $response ) ) {
+		if ( is_wp_error( $response ) ) {
+			$this->remember_update_error( $response->get_error_message() );
+			set_transient( self::TRANSIENT_INFO, array(), 15 * MINUTE_IN_SECONDS );
+			return array();
+		}
+
+		$code = wp_remote_retrieve_response_code( $response );
+		if ( 200 !== $code ) {
+			$this->remember_update_error( "HTTP {$code} from " . $this->api_base() . '/plugin/update-info.json' );
 			// Cache the miss briefly so a down sidecar doesn't stall every update check.
 			set_transient( self::TRANSIENT_INFO, array(), 15 * MINUTE_IN_SECONDS );
 			return array();
@@ -559,10 +609,21 @@ class WordpressIdxSearch {
 
 		$info = json_decode( wp_remote_retrieve_body( $response ), true );
 		if ( ! is_array( $info ) ) {
+			$this->remember_update_error( 'Sidecar returned a malformed update manifest.' );
 			$info = array();
+		} else {
+			delete_transient( self::TRANSIENT_ERROR );
 		}
 		set_transient( self::TRANSIENT_INFO, $info, 6 * HOUR_IN_SECONDS );
 		return $info;
+	}
+
+	/**
+	 * Keep the last update-check failure so the settings page can explain why no
+	 * update is being offered instead of silently showing nothing.
+	 */
+	private function remember_update_error( $message ) {
+		set_transient( self::TRANSIENT_ERROR, $message, DAY_IN_SECONDS );
 	}
 
 	/**
@@ -574,7 +635,7 @@ class WordpressIdxSearch {
 			return $update;
 		}
 
-		$info = $this->fetch_update_info();
+		$info = $this->fetch_update_info( $this->is_force_check() );
 		if ( empty( $info['version'] ) ) {
 			return $update;
 		}
@@ -589,6 +650,36 @@ class WordpressIdxSearch {
 			'requires_php' => isset( $info['requires_php'] ) ? $info['requires_php'] : '',
 			'tested'       => isset( $info['tested'] ) ? $info['tested'] : '',
 		);
+	}
+
+	/**
+	 * Show what the sidecar currently advertises, so a stuck install can be
+	 * diagnosed from the admin screen instead of guessing: it names the endpoint
+	 * being polled, the version offered, and the last failure if there was one.
+	 */
+	private function render_update_status( $t ) {
+		$endpoint = $this->api_base() . '/plugin/update-info.json';
+		$info     = $this->fetch_update_info( true );
+		$error    = get_transient( self::TRANSIENT_ERROR );
+
+		echo '<p><code>' . esc_html( $endpoint ) . '</code></p>';
+		echo '<p>' . esc_html( $t['admin_update_installed'] ) . ' <strong>' . esc_html( self::VERSION ) . '</strong>';
+
+		if ( ! empty( $info['version'] ) ) {
+			echo ' &middot; ' . esc_html( $t['admin_update_offered'] ) . ' <strong>' . esc_html( $info['version'] ) . '</strong>';
+			echo '</p>';
+			if ( version_compare( self::VERSION, $info['version'], '<' ) ) {
+				echo '<p><a href="' . esc_url( admin_url( 'update-core.php?force-check=1' ) ) . '" class="button button-secondary">'
+					. esc_html( $t['admin_update_check'] ) . '</a></p>';
+			}
+			return;
+		}
+
+		echo '</p><div class="notice notice-warning inline"><p>' . esc_html( $t['admin_update_unreachable'] );
+		if ( is_string( $error ) && '' !== $error ) {
+			echo ' <code>' . esc_html( $error ) . '</code>';
+		}
+		echo '</p></div>';
 	}
 
 	/**
@@ -609,6 +700,7 @@ class WordpressIdxSearch {
 	public function flush_update_cache( $upgrader, $data ) {
 		if ( isset( $data['type'] ) && 'plugin' === $data['type'] ) {
 			delete_transient( self::TRANSIENT_INFO );
+			delete_transient( self::TRANSIENT_ERROR );
 		}
 	}
 }
