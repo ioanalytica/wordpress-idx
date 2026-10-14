@@ -6,16 +6,38 @@ import assert from 'node:assert/strict';
 // comments, and the DATETIME mapping — none of which a mocked driver would
 // cover. Opt-in via IDX_TEST_DB=1 so `npm test` stays green without a database.
 const ENABLED = process.env.IDX_TEST_DB === '1';
-const PREFIX = 'wp_';
+
+// This suite creates and drops tables, so it must never be able to touch a real
+// install. Two guards:
+//
+// 1. Connection details come from IDX_TEST_DB_* only. The app's own DB_*
+//    variables are deliberately NOT inherited — they point at a working
+//    WordPress (see app/.env), and an exported DB_NAME would otherwise aim the
+//    teardown at it.
+// 2. Fixtures live under a prefix unique to this run, so even a misaimed
+//    database cannot collide with its wp_ tables.
+const PREFIX = `idx_test_${process.pid}_${Date.now()}_`;
+
+const DB = {
+  host: process.env.IDX_TEST_DB_HOST || '127.0.0.1',
+  port: Number(process.env.IDX_TEST_DB_PORT || 3306),
+  user: process.env.IDX_TEST_DB_USER || 'root',
+  password: process.env.IDX_TEST_DB_PASS || 'root',
+  database: process.env.IDX_TEST_DB_NAME || 'wordpress_idx_test',
+};
+
+// Fixture tables, dropped in teardown. Identifiers are built from PREFIX and
+// this list, never from input, so the template literals below are safe.
+const TABLES = ['comments', 'term_relationships', 'term_taxonomy', 'terms', 'posts', 'users'];
 
 if (ENABLED) {
   // config.js reads these once at import time, so they must be set before the
   // dynamic imports in before().
-  process.env.DB_HOST = process.env.DB_HOST || '127.0.0.1';
-  process.env.DB_PORT = process.env.DB_PORT || '3306';
-  process.env.DB_USER = process.env.DB_USER || 'root';
-  process.env.DB_PASS = process.env.DB_PASS || 'root';
-  process.env.DB_NAME = process.env.DB_NAME || 'wordpress_idx_test';
+  process.env.DB_HOST = DB.host;
+  process.env.DB_PORT = String(DB.port);
+  process.env.DB_USER = DB.user;
+  process.env.DB_PASS = DB.password;
+  process.env.DB_NAME = DB.database;
   process.env.DB_PREFIX = PREFIX;
 }
 
@@ -91,25 +113,19 @@ const SEED = [
   ],
 ];
 
+async function connect() {
+  const mysql = (await import('mysql2/promise')).default;
+  return mysql.createConnection({ ...DB, multipleStatements: false });
+}
+
 describe('mysql2 database layer', { skip: ENABLED ? false : 'set IDX_TEST_DB=1 and provide a MySQL' }, () => {
   let extractAll;
   let testConnection;
   let entries;
 
   before(async () => {
-    const mysql = (await import('mysql2/promise')).default;
-    const conn = await mysql.createConnection({
-      host: process.env.DB_HOST,
-      port: Number(process.env.DB_PORT),
-      user: process.env.DB_USER,
-      password: process.env.DB_PASS,
-      database: process.env.DB_NAME,
-      multipleStatements: false,
-    });
+    const conn = await connect();
     try {
-      for (const table of ['comments', 'term_relationships', 'term_taxonomy', 'terms', 'posts', 'users']) {
-        await conn.query(`DROP TABLE IF EXISTS ${PREFIX}${table}`);
-      }
       for (const stmt of DDL) await conn.query(stmt);
       for (const [stmt] of SEED) await conn.query(stmt);
     } finally {
@@ -123,16 +139,9 @@ describe('mysql2 database layer', { skip: ENABLED ? false : 'set IDX_TEST_DB=1 a
 
   after(async () => {
     if (!ENABLED) return;
-    const mysql = (await import('mysql2/promise')).default;
-    const conn = await mysql.createConnection({
-      host: process.env.DB_HOST,
-      port: Number(process.env.DB_PORT),
-      user: process.env.DB_USER,
-      password: process.env.DB_PASS,
-      database: process.env.DB_NAME,
-    });
+    const conn = await connect();
     try {
-      for (const table of ['comments', 'term_relationships', 'term_taxonomy', 'terms', 'posts', 'users']) {
+      for (const table of TABLES) {
         await conn.query(`DROP TABLE IF EXISTS ${PREFIX}${table}`);
       }
     } finally {
