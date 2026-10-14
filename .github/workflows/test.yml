@@ -53,11 +53,11 @@ jobs:
           --health-retries=10
     env:
       IDX_TEST_DB: "1"
-      DB_HOST: 127.0.0.1
-      DB_PORT: "3306"
-      DB_USER: root
-      DB_PASS: root
-      DB_NAME: wordpress_idx_test
+      IDX_TEST_DB_HOST: 127.0.0.1
+      IDX_TEST_DB_PORT: "3306"
+      IDX_TEST_DB_USER: root
+      IDX_TEST_DB_PASS: root
+      IDX_TEST_DB_NAME: wordpress_idx_test
     steps:
       - name: Checkout
         uses: actions/checkout@v7.0.1
