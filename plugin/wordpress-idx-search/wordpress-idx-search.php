@@ -38,7 +38,8 @@ class WordpressIdxSearch {
 	// UPDATE_HOST is the host of the "Update URI" header — it names the
 	// update_plugins_{host} filter and keeps WordPress from checking
 	// wordpress.org for this plugin. TRANSIENT_INFO caches the sidecar's
-	// update manifest for a short while.
+	// update manifest for the per-request readers (the auto-update filter);
+	// the update check itself always refreshes it.
 	const UPDATE_HOST     = 'ioanalytica.com';
 	const TRANSIENT_INFO  = 'idx_search_update_info';
 	const TRANSIENT_ERROR = 'idx_search_update_error';
@@ -606,20 +607,10 @@ class WordpressIdxSearch {
 	}
 
 	/**
-	 * True when the admin asked WordPress for a fresh update check ("Check
-	 * again" on the Updates screen). Reading core's own flag, not form input.
-	 */
-	private function is_force_check() {
-		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only flag set by core's update screen.
-		return ! empty( $_GET['force-check'] );
-	}
-
-	/**
-	 * Fetch (and briefly cache) the sidecar's plugin update manifest.
+	 * Fetch (and cache) the sidecar's plugin update manifest.
 	 *
-	 * A forced check must bypass the cache: otherwise a stale manifest — or the
-	 * short "miss" entry written when the sidecar was unreachable — keeps the
-	 * plugin reporting "no update" with no way for an admin to refresh it.
+	 * $force skips the cached copy but still writes the fresh result, so the
+	 * readers that rely on the cache see what the last real check saw.
 	 */
 	private function fetch_update_info( $force = false ) {
 		if ( ! $force ) {
@@ -670,13 +661,19 @@ class WordpressIdxSearch {
 	/**
 	 * "Update URI" hook: advertise the plugin build the sidecar currently ships.
 	 * WordPress compares versions itself and only offers an update when newer.
+	 *
+	 * Always asks the sidecar instead of reading the cached manifest: core
+	 * already throttles this check (twice a day, hourly at most on the admin
+	 * screens), and a cached manifest outlives a sidecar upgrade - the pod
+	 * then ships a newer plugin while the check keeps reporting the old one
+	 * for hours.
 	 */
 	public function check_for_update( $update, $plugin_data, $plugin_file ) {
 		if ( plugin_basename( __FILE__ ) !== $plugin_file ) {
 			return $update;
 		}
 
-		$info = $this->fetch_update_info( $this->is_force_check() );
+		$info = $this->fetch_update_info( true );
 		if ( empty( $info['version'] ) ) {
 			return $update;
 		}

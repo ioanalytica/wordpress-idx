@@ -59,6 +59,67 @@ class Test_Wordpress_Idx_Search extends WP_UnitTestCase {
 		$this->assertStringContainsString( ' after', $out );
 	}
 
+	/**
+	 * Answer every HTTP request with the given manifest and count the calls.
+	 */
+	private function mock_sidecar_manifest( array $manifest ) {
+		$calls = new ArrayObject();
+		add_filter(
+			'pre_http_request',
+			function ( $pre, $args, $url ) use ( $manifest, $calls ) {
+				$calls[] = $url;
+				return array(
+					'headers'  => array(),
+					'body'     => wp_json_encode( $manifest ),
+					'response' => array(
+						'code'    => 200,
+						'message' => 'OK',
+					),
+					'cookies'  => array(),
+				);
+			},
+			10,
+			3
+		);
+		return $calls;
+	}
+
+	private function plugin_file() {
+		return plugin_basename( dirname( __DIR__ ) . '/wordpress-idx-search.php' );
+	}
+
+	public function test_update_check_ignores_a_cached_manifest() {
+		// What the previous sidecar served before the pod was upgraded.
+		set_transient( WordpressIdxSearch::TRANSIENT_INFO, array( 'version' => '1.0.0' ), HOUR_IN_SECONDS );
+		$calls = $this->mock_sidecar_manifest( array( 'version' => '99.0.0' ) );
+
+		$update = $this->plugin->check_for_update( false, array(), $this->plugin_file() );
+
+		$this->assertCount( 1, $calls, 'The update check must ask the sidecar.' );
+		$this->assertSame( '99.0.0', $update['new_version'] );
+		$this->assertSame(
+			array( 'version' => '99.0.0' ),
+			get_transient( WordpressIdxSearch::TRANSIENT_INFO ),
+			'The fresh manifest must replace the cached one.'
+		);
+	}
+
+	public function test_update_check_leaves_other_plugins_alone() {
+		$calls = $this->mock_sidecar_manifest( array( 'version' => '99.0.0' ) );
+
+		$this->assertFalse( $this->plugin->check_for_update( false, array(), 'other/other.php' ) );
+		$this->assertCount( 0, $calls );
+	}
+
+	public function test_auto_update_filter_reads_the_cached_manifest() {
+		set_transient( WordpressIdxSearch::TRANSIENT_INFO, array( 'auto_update' => false ), HOUR_IN_SECONDS );
+		$calls = $this->mock_sidecar_manifest( array( 'auto_update' => true ) );
+
+		$item = (object) array( 'plugin' => $this->plugin_file() );
+		$this->assertFalse( $this->plugin->maybe_auto_update( true, $item ) );
+		$this->assertCount( 0, $calls, 'The per-row auto-update filter must not hit the sidecar.' );
+	}
+
 	public function test_version_is_single_source_of_truth() {
 		$plugin_file = dirname( __DIR__ ) . '/wordpress-idx-search.php';
 		$data        = get_file_data( $plugin_file, array( 'Version' => 'Version' ) );
