@@ -1,12 +1,10 @@
-import { existsSync } from 'node:fs';
-import { readFile } from 'node:fs/promises';
-import { join } from 'node:path';
 import express, { Router } from 'express';
 import cors from 'cors';
-import { Document } from 'flexsearch';
 import config from './config.js';
 import { testConnection } from './db.js';
-import { buildSourceFile } from './indexer.js';
+import { buildSourceFile, readIndexFile } from './indexer.js';
+import { createIndex } from './index-format.js';
+import { prepareIndex } from './startup.js';
 import { createSearchRouter } from './searcher.js';
 import { createReindexRouter } from './reindex.js';
 import { createPluginRouter } from './plugin.js';
@@ -65,27 +63,16 @@ baseRouter.use((req, res, next) => {
   next();
 });
 
-async function loadIndex() {
-  const flexPath = join(config.dataDir, 'wp-index-flex.json');
-
+// Puts the data of an index file into service: replaces the search router.
+async function activateIndex(data) {
   console.log('Loading FlexSearch index...');
-  const data = JSON.parse(await readFile(flexPath, 'utf-8'));
 
   const entriesMap = new Map();
   for (const entry of data.entries) {
     entriesMap.set(entry.id, entry);
   }
 
-  const index = new Document({
-    document: {
-      id: 'id',
-      index: ['content', 'commentsText'],
-      store: true,
-    },
-    tokenize: 'forward',
-    charset: 'latin:advanced',
-  });
-
+  const index = createIndex();
   for (const [key, value] of Object.entries(data.flexIndex)) {
     await index.import(key, value);
   }
@@ -94,6 +81,13 @@ async function loadIndex() {
   indexReady = true;
   console.log(`Search API ready. ${entriesMap.size} entries loaded.`);
   return entriesMap.size;
+}
+
+// After a reindex: the file that was just written.
+async function loadIndex() {
+  const data = await readIndexFile();
+  if (!data) throw new Error('The index file that was just written cannot be loaded.');
+  return activateIndex(data);
 }
 
 // Mount reindex endpoint
@@ -111,26 +105,23 @@ const server = app.listen(config.port, async () => {
   if (config.basePath) console.log(`Base path: ${config.basePath}`);
 
   try {
-    const flexPath = join(config.dataDir, 'wp-index-flex.json');
-    const forceUpdate = process.env.FORCE_UPDATE === 'true';
-
-    if (forceUpdate || !existsSync(flexPath)) {
-      if (config.startupDelay > 0) {
-        console.log(`Waiting ${config.startupDelay}s for WordPress to start...`);
-        await new Promise((r) => setTimeout(r, config.startupDelay * 1000));
-      }
-      if (forceUpdate) console.log('FORCE_UPDATE is set, rebuilding index...');
-      console.log(`Connecting to database ${config.db.database} at ${config.db.host}:${config.db.port}...`);
-      await testConnection();
-      console.log('Database connection successful.');
-      alive = true; // DB connected — signal liveness so k8s doesn't kill us during extraction
-      await buildSourceFile();
-    } else {
-      console.log('FlexSearch index found, skipping extraction.');
-      alive = true; // existing index found — we're good
-    }
-
-    await loadIndex();
+    const data = await prepareIndex({
+      forceUpdate: process.env.FORCE_UPDATE === 'true',
+      startupDelayMs: config.startupDelay * 1000,
+      readIndex: () => readIndexFile(),
+      testConnection: async () => {
+        console.log(`Connecting to database ${config.db.database} at ${config.db.host}:${config.db.port}...`);
+        await testConnection();
+        console.log('Database connection successful.');
+      },
+      buildIndex: buildSourceFile,
+      // An index to load, or a database connection to build one from: signal
+      // liveness, so that k8s does not kill the service during the build.
+      markAlive: () => {
+        alive = true;
+      },
+    });
+    await activateIndex(data);
   } catch (err) {
     console.error(`Startup error: ${err.message}`);
   }

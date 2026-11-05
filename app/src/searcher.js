@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { TEXT_FIELDS, COMMENT_FIELD } from './index-format.js';
 
 export function createSearchRouter(index, entriesMap) {
   const router = Router();
@@ -79,7 +80,10 @@ export function createSearchRouter(index, entriesMap) {
         if (!earliest || d < earliest) earliest = d;
         if (!latest || d > latest) latest = d;
 
-        authorCounts[e.author] = (authorCounts[e.author] || 0) + 1;
+        // An entry without a WordPress user has no author to count.
+        if (e.author) {
+          authorCounts[e.author] = (authorCounts[e.author] || 0) + 1;
+        }
 
         if (e.categories) {
           for (const c of e.categories) {
@@ -144,10 +148,14 @@ function filterEntries(query, index, entriesMap) {
     const isPhrase = /^".*"$/.test(q);
     const searchTerm = isPhrase ? q.slice(1, -1) : q;
 
-    const searchOpts = include_comments === 'true'
-      ? { enrich: true }
-      : { index: ['content'], enrich: true };
-    const searchResults = index.search(searchTerm, searchOpts);
+    // Without a limit FlexSearch returns 100 matches per field. Every entry
+    // can match, so the number of entries is the limit that cuts nothing off.
+    const fields = include_comments === 'true' ? [...TEXT_FIELDS, COMMENT_FIELD] : TEXT_FIELDS;
+    const searchResults = index.search(searchTerm, {
+      index: fields,
+      enrich: true,
+      limit: Math.max(entriesMap.size, 1),
+    });
     const idSet = new Set();
     for (const fieldResult of searchResults) {
       for (const item of fieldResult.result) {
@@ -161,6 +169,7 @@ function filterEntries(query, index, entriesMap) {
       const escaped = searchTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       const phraseRegex = new RegExp('\\b' + escaped.replace(/\s+/g, '\\s+') + '\\b', 'i');
       candidates = candidates.filter((e) => {
+        if (e.title && phraseRegex.test(e.title)) return true;
         if (e.content && phraseRegex.test(e.content)) return true;
         if (include_comments === 'true' && e.comments) {
           return e.comments.some((c) => c.content && phraseRegex.test(c.content));

@@ -20,13 +20,17 @@ function stripHtml(html) {
 export async function extractAll() {
   const pool = createPool();
   try {
-    // 1. Fetch published posts and pages with author
+    // 1. Fetch the posts and pages that are public: published, and without a
+    //    password. The author is optional (LEFT JOIN): a post whose
+    //    post_author is 0, or names a user that was deleted, is published
+    //    content all the same and gets an empty author.
     const [posts] = await pool.query(`
       SELECT p.ID, p.post_type, p.post_title, p.post_date, p.post_content,
-             p.post_name, u.display_name AS author
+             p.post_name, COALESCE(u.display_name, '') AS author
       FROM ${prefix}posts p
-      JOIN ${prefix}users u ON p.post_author = u.ID
+      LEFT JOIN ${prefix}users u ON p.post_author = u.ID
       WHERE p.post_status = 'publish'
+        AND p.post_password = ''
         AND p.post_type IN ('post', 'page')
       ORDER BY p.post_date DESC
     `);
