@@ -1,6 +1,6 @@
 # wordpress-idx API Reference
 
-REST API for searching WordPress posts and pages. Base URL includes a configurable prefix (e.g. `/idx`). All endpoints return JSON.
+REST API for searching WordPress posts and pages. Base URL includes a configurable prefix (e.g. `/idx`). All endpoints return JSON, except the 404 that the `/api/` routes answer before the index is loaded (see `GET /readyz`).
 
 ## Endpoints
 
