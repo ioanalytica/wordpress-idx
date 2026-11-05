@@ -3,7 +3,7 @@ Contributors: ioanalytica
 Tags: search, fulltext, full-text, flexsearch, idx
 Requires at least: 5.0
 Tested up to: 7.1
-Stable tag: 1.3.7
+Stable tag: 1.3.8
 Requires PHP: 7.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -16,7 +16,7 @@ WordPress IDX Search provides a powerful full-text search form for your WordPres
 
 **Features:**
 
-* Full-text search across all posts and pages
+* Full-text search across the titles and content of all public posts and pages
 * Filter by type, author, category, tag, and date range
 * Optional comment search
 * Context snippet mode with search term highlighting
@@ -38,7 +38,7 @@ Place the HTML comment `<!-- wordpress-idx-search -->` in any post or page conte
 
 1. Upload the `wordpress-idx-search` folder to `/wp-content/plugins/`.
 2. Activate the plugin through the "Plugins" menu in WordPress.
-3. Ensure the wordpress-idx sidecar is running and accessible at `/idx/` on your domain.
+3. Ensure the wordpress-idx sidecar is running and accessible at `/idx/` on your domain. If your installation serves it under another path, define `WORDPRESS_IDX_BASE` in `wp-config.php` with the sidecar's URL including that path, e.g. `http://127.0.0.1:3000/search`: the plugin uses the URL for its own calls to the sidecar and its path for the search form.
 4. Go to **Settings > IDX Search** to configure the language and API key.
 5. Create a page and add `<!-- wordpress-idx-search -->` to its content.
 
@@ -72,6 +72,11 @@ The search UI is available in German, English, French, and Spanish. The language
 
 == Changelog ==
 
+= 1.3.8 =
+* The search form calls the sidecar under the path of `WORDPRESS_IDX_BASE` instead of a fixed `/idx`
+* A quoted phrase is also found in titles, which the sidecar searches from this version on
+* Versions 1.3.0 to 1.3.7: see CHANGELOG.md in the plugin's repository
+
 = 1.2.0 =
 * Added exact phrase search with double quotes (Google-style)
 * Client-side and server-side phrase filtering
@@ -96,6 +101,9 @@ The search UI is available in German, English, French, and Spanish. The language
 * Admin settings for language, API key, and reindex
 
 == Upgrade Notice ==
+
+= 1.3.8 =
+The search form follows the sidecar's configured path, and the search covers titles. Comes with sidecar 1.3.8.
 
 = 1.2.0 =
 Adds Google-style exact phrase search. Wrap your query in double quotes for precise matching.
