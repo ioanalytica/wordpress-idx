@@ -65,10 +65,11 @@
       "schedule": ["* 0-5 1 * *"]
     },
     {
-      "description": "The MySQL that the test jobs start as a service is the series the tests are meant to cover: a new one is a deliberate move, approved on the dashboard. A group of its own, so that the approval does not hold the other workflow updates.",
+      "description": "The MySQL that the test jobs start as a service is the series the tests are meant to cover: a new one is a deliberate move, approved on the dashboard. A group of its own, so that the approval does not hold the other workflow updates, and a new major apart from a new minor, so that either can be approved without the other.",
       "matchManagers": ["github-actions"],
       "matchDepNames": ["mysql"],
       "groupName": "MySQL of the test jobs",
+      "separateMajorMinor": true,
       "dependencyDashboardApproval": true
     },
     {
