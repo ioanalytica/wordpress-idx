@@ -47,6 +47,7 @@ MySQL it may write to:
 ```sh
 docker run --rm -d --name idx-test-mysql -p 127.0.0.1:3306:3306 \
   -e MYSQL_ROOT_PASSWORD=root -e MYSQL_DATABASE=wordpress_idx_test mysql:8.0
+cd app
 IDX_TEST_DB=1 npm test          # once MySQL accepts connections
 docker stop idx-test-mysql
 ```
@@ -70,6 +71,7 @@ PHPUnit runs the plugin inside the WordPress test suite, which needs a MySQL
 or MariaDB and is installed once, into the temporary directory:
 
 ```sh
+cd plugin/wordpress-idx-search
 bash bin/install-wp-tests.sh wordpress_test root root 127.0.0.1:3306 latest
 composer test
 ```
