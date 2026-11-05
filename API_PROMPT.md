@@ -10,7 +10,7 @@ Full-text search and metadata filtering. All parameters are optional query strin
 
 | Param | Type | Description |
 |---|---|---|
-| `q` | string | Full-text search, case-insensitive. Words match by prefix (forward tokenizer); several words must all match, in any order. In double quotes (`q="exact phrase"`) only entries that contain the phrase match |
+| `q` | string | Full-text search over titles and post content, case-insensitive. Words match by prefix (forward tokenizer); several words must all match, in any order, within one of the searched fields. In double quotes (`q="exact phrase"`) only entries that contain the phrase match |
 | `type` | string | `post` or `page` |
 | `author` | string | Case-insensitive substring match on author name |
 | `category` | string | Case-insensitive exact match on category name |
@@ -21,9 +21,9 @@ Full-text search and metadata filtering. All parameters are optional query strin
 | `to_year`, `to_month`, `to_day` | string | End date in parts, read only when `to` is absent; month and day are ignored without the year |
 | `limit` | integer | Max results to return (default: unlimited) |
 | `context` | boolean | `true` returns a ~500-char snippet around the match instead of the full content (only with `q`) |
-| `include_comments` | boolean | `true` includes comment text in the full-text search (default: `false`, searches post content only) |
+| `include_comments` | boolean | `true` includes comment text in the full-text search (default: `false`, searches titles and post content only) |
 
-Response: `{ "total": number, "results": Entry[] }`. `total` counts the matches before `limit` is applied; with `q` it is capped, see Key Behaviours.
+Response: `{ "total": number, "results": Entry[] }`. `total` counts all matches, before `limit` is applied.
 
 ### GET /api/entry/:id
 
@@ -75,13 +75,15 @@ Liveness probe: 200 `{ "status": "ok", "ready": boolean }` once the service has 
 
 ## Key Behaviours
 
+- The index holds the published posts and pages that are public without a password.
 - `q` uses FlexSearch forward tokenizer: "kube" matches "kubernetes". Without `q`, all entries are returned and only metadata filters apply.
-- With `q`, the index returns at most 100 matches from the post content, and at most 100 more from the comment text with `include_comments=true`. The phrase check and all metadata filters apply to those matches only, so `total`, `results` and `/api/stats` can miss entries when a query matches more. Without `q` there is no such cap.
-- `q="exact phrase"` keeps only entries in which the words follow each other as whole words, case-insensitive, with any whitespace between them. Word boundaries know ASCII letters only: at an end of the phrase that is another letter (`ä`, `é`, `ß`), the phrase is found only where an ASCII letter, digit or underscore touches it. `q="café"` matches in `cafés` and not in `café.`
-- `include_comments=true` extends `q` matching to comment text. Comments are always present in the response regardless of this flag.
-- `context=true` with `q` returns a ~500-char snippet around the first place where `q` occurs literally in the content, with `...` where text was cut. If `include_comments=true` and `q` occurs only in comments, the snippet is drawn from comment text. If `q` does not occur literally (several words that are apart, or a quoted phrase, whose quotes are part of the lookup), the first 500 chars of the content are returned.
+- `q` is matched against the title and the content of an entry, each on its own: an entry matches when its title holds all words of the query or its content does, not when they are spread over both. Every entry that matches is returned; `total`, the filters and `/api/stats` see them all.
+- `q="exact phrase"` keeps only entries in which the words follow each other as whole words in the title or in the content, case-insensitive, with any whitespace between them. Word boundaries know ASCII letters only: at an end of the phrase that is another letter (`ä`, `é`, `ß`), the phrase is found only where an ASCII letter, digit or underscore touches it. `q="café"` matches in `cafés` and not in `café.`
+- `include_comments=true` extends `q` matching to comment text, as a third field: the comments of an entry together, for a quoted phrase each comment on its own. Comments are always present in the response regardless of this flag.
+- `context=true` with `q` returns a ~500-char snippet around the first place where `q` occurs literally in the content, with `...` where text was cut. If `include_comments=true` and `q` occurs only in comments, the snippet is drawn from comment text. If `q` does not occur literally there (a match in the title only, several words that are apart, or a quoted phrase, whose quotes are part of the lookup), the first 500 chars of the content are returned.
 - Filters are combined with AND logic. All filters are optional and can be mixed freely.
 - Date ranges are inclusive. Partial dates expand: `from=2024` → Jan 1 2024, `to=2024` → Dec 31 2024.
 - Without `q`, results come newest first. With `q`, they come in the index's match order, not by date.
 - Slugs are always formatted as `/{post_name}/`.
+- `author` is the display name of the entry's WordPress user, and `""` for an entry that has none. Such an entry matches no `author` filter and adds nothing to `topAuthors`.
 - An unexpected failure returns 500 with `{ "error": string, "message": string }`; the 4xx and 503 answers of the `/api/` endpoints carry an `error` text as well, except the 404 before the index is loaded.
