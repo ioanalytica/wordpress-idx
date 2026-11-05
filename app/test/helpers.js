@@ -1,5 +1,5 @@
 import express from 'express';
-import { Document } from 'flexsearch';
+import { createIndex } from '../src/index-format.js';
 
 // Sample entries shaped like the real index payload (see indexer.js / index.js).
 export const SAMPLE_ENTRIES = [
@@ -8,6 +8,7 @@ export const SAMPLE_ENTRIES = [
     type: 'post',
     author: 'Alice',
     title: 'Hello World',
+    titleText: 'Hello World',
     date: '2021-03-15T10:00:00Z',
     slug: 'hello-world',
     categories: ['News'],
@@ -21,6 +22,7 @@ export const SAMPLE_ENTRIES = [
     type: 'page',
     author: 'Bob',
     title: 'About Us',
+    titleText: 'About Us',
     date: '2022-07-01T10:00:00Z',
     slug: 'about-us',
     categories: ['Info'],
@@ -34,6 +36,7 @@ export const SAMPLE_ENTRIES = [
     type: 'post',
     author: 'Alice',
     title: 'Second Post',
+    titleText: 'Second Post',
     date: '2023-01-20T10:00:00Z',
     slug: 'second-post',
     categories: ['News'],
@@ -44,17 +47,10 @@ export const SAMPLE_ENTRIES = [
   },
 ];
 
-// Builds a FlexSearch Document + entriesMap identical in shape to production loadIndex().
+// Builds the production index (index-format.js) + an entriesMap as the
+// service holds them after loading an index file.
 export function buildTestIndex(entries = SAMPLE_ENTRIES) {
-  const index = new Document({
-    document: {
-      id: 'id',
-      index: ['content', 'commentsText'],
-      store: true,
-    },
-    tokenize: 'forward',
-    charset: 'latin:advanced',
-  });
+  const index = createIndex();
 
   const entriesMap = new Map();
   for (const entry of entries) {

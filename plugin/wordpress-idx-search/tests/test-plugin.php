@@ -60,6 +60,41 @@ class Test_Wordpress_Idx_Search extends WP_UnitTestCase {
 	}
 
 	/**
+	 * The sidecar's path is configurable (BASE_PATH there, idx.basePath in the
+	 * Helm chart, which also defines WORDPRESS_IDX_BASE with it). The search
+	 * form's script must call that path, not a fixed /idx.
+	 */
+	public function test_base_path_is_the_path_of_the_sidecar_base() {
+		$this->assertSame( '/idx', WordpressIdxSearch::base_path( 'http://127.0.0.1:3000/idx' ) );
+		$this->assertSame( '/search', WordpressIdxSearch::base_path( 'http://127.0.0.1:3000/search' ) );
+		$this->assertSame( '/a/b', WordpressIdxSearch::base_path( 'https://example.org/a/b/' ) );
+		$this->assertSame( '/search', WordpressIdxSearch::base_path( '/search' ) );
+	}
+
+	public function test_base_path_falls_back_to_idx() {
+		$this->assertSame( '/idx', WordpressIdxSearch::base_path( '' ) );
+		$this->assertSame( '/idx', WordpressIdxSearch::base_path( null ) );
+		$this->assertSame( '/idx', WordpressIdxSearch::base_path( 'http://127.0.0.1:3000' ) );
+		$this->assertSame( '/idx', WordpressIdxSearch::base_path( 'http://127.0.0.1:3000/' ) );
+	}
+
+	public function test_replace_marker_passes_the_base_path_to_the_script() {
+		$this->plugin->register_assets();
+		$this->plugin->replace_marker( 'x ' . WordpressIdxSearch::MARKER );
+
+		$data = (string) wp_scripts()->get_data( 'wordpress-idx-search', 'data' );
+		$this->assertSame(
+			1,
+			preg_match( '/var idxConfig = (\{.*?\});/', $data, $match ),
+			'The search script must be told where the sidecar is.'
+		);
+		$config = json_decode( $match[1], true );
+		$this->assertSame( $this->plugin->public_base(), $config['apiBase'] );
+		// WORDPRESS_IDX_BASE is not defined in the test suite.
+		$this->assertSame( '/idx', $this->plugin->public_base() );
+	}
+
+	/**
 	 * Answer every HTTP request with the given manifest and count the calls.
 	 */
 	private function mock_sidecar_manifest( array $manifest ) {

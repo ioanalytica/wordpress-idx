@@ -3,7 +3,43 @@
 What changed in each version of wordpress-idx. The sidecar and the WordPress
 plugin share one version; the entry of a version is its release notes.
 
-## Unreleased
+## 1.3.8
+
+* **A query returns every match.** With `q`, the search returned at most 100
+  entries per searched field, and `total`, the filters and `/api/stats`
+  counted only those. They now see every entry that matches.
+* **A query matches titles.** The index covered the content and the comments
+  of an entry; a word that stood only in its title found nothing. Titles are
+  now searched like the content, as plain text and also by a quoted phrase,
+  in the API and in the plugin's search form. Several words must still all occur in one field:
+  the title, the content or, with `include_comments`, the comments.
+* **Posts without an author are in the index.** A published post or page
+  whose author is not a WordPress user (author ID 0, as `wp post create`
+  leaves it without `--post_author`, or a user that was deleted) was left
+  out. It is now indexed with an empty `author`, matches no `author` filter
+  and adds nothing to `topAuthors`.
+* **Hardening: the index holds only posts and pages that are public without
+  a password.**
+* **An index file of an earlier version is rebuilt once.** The index file
+  now carries a format number. A file without it, or with another one, is
+  not loaded: the sidecar builds its index anew from the database at the
+  first start of this version, and needs the database for that start. This
+  is what brings titles and the entries above into an existing
+  installation's index; no manual "Rebuild index" is needed.
+* **The sidecar waits for WordPress.** The index was built in one attempt
+  after the start; when the database did not answer yet or WordPress had
+  not created its tables, the sidecar stayed without an index until it was
+  restarted. It now tries again every 5 seconds until the build succeeds,
+  and builds an index without entries a second time before it serves it.
+* **The plugin's search form follows the sidecar's path.** Its script called
+  the sidecar under `/idx`, whatever path the sidecar was configured with
+  (`BASE_PATH`, `idx.basePath` in the Helm chart). It now uses the path of
+  `WORDPRESS_IDX_BASE`, which the chart defines, and `/idx` without it. The
+  settings page shows the same path.
+* **The search form shows every result of a quoted phrase.** The form
+  checked the phrase a second time in the browser. With "context snippet
+  only" it checked the snippet, and dropped a result whose phrase lies
+  outside it. The sidecar's match now stands.
 
 ### Project
 

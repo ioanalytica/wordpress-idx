@@ -3,14 +3,22 @@ import config from './config.js';
 
 const { prefix } = config.db;
 
-function stripHtml(html) {
+// A numeric character reference (&#38; or &#x26;) as the character it names;
+// one that names no character stays as it is.
+function decodeNumeric(match, hex, dec) {
+  const code = hex ? parseInt(hex, 16) : parseInt(dec, 10);
+  if (code === 0 || code > 0x10ffff || (code >= 0xd800 && code <= 0xdfff)) return match;
+  return String.fromCodePoint(code);
+}
+
+export function stripHtml(html) {
   let text = html
     .replace(/<[^>]*>/g, ' ')
+    .replace(/&#(?:x([0-9a-f]{1,6})|([0-9]{1,7}));/gi, decodeNumeric)
     .replace(/&amp;/g, '&')
     .replace(/&lt;/g, '<')
     .replace(/&gt;/g, '>')
     .replace(/&quot;/g, '"')
-    .replace(/&#0?39;/g, "'")
     .replace(/&nbsp;/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
@@ -20,13 +28,19 @@ function stripHtml(html) {
 export async function extractAll() {
   const pool = createPool();
   try {
-    // 1. Fetch published posts and pages with author
+    // 1. Fetch the posts and pages that are public: published, and without a
+    //    password. The password is checked by its length: the collations of
+    //    WordPress' tables pad with spaces when they compare, so a password
+    //    of spaces would equal ''. The author is optional (LEFT JOIN): a post
+    //    whose post_author is 0, or names a user that was deleted, is
+    //    published content all the same and gets an empty author.
     const [posts] = await pool.query(`
       SELECT p.ID, p.post_type, p.post_title, p.post_date, p.post_content,
-             p.post_name, u.display_name AS author
+             p.post_name, COALESCE(u.display_name, '') AS author
       FROM ${prefix}posts p
-      JOIN ${prefix}users u ON p.post_author = u.ID
+      LEFT JOIN ${prefix}users u ON p.post_author = u.ID
       WHERE p.post_status = 'publish'
+        AND LENGTH(p.post_password) = 0
         AND p.post_type IN ('post', 'page')
       ORDER BY p.post_date DESC
     `);
@@ -98,6 +112,9 @@ export async function extractAll() {
         type: p.post_type,
         author: p.author,
         title: p.post_title,
+        // What a query is matched against: the title as it reads, without
+        // the entities and tags it is stored with.
+        titleText: stripHtml(p.post_title),
         date: p.post_date,
         slug: `/${p.post_name}/`,
         categories: postTerms.categories,

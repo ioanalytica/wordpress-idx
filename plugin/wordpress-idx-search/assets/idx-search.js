@@ -1,7 +1,10 @@
 (function () {
     'use strict';
 
-    var API_BASE = '/idx';
+    // The sidecar's path on this host. The plugin passes it (idxConfig), since
+    // the path is configurable; '/idx' is the sidecar's default.
+    var config = window.idxConfig || {};
+    var API_BASE = config.apiBase || '/idx';
     var t = window.idxI18n || {};
 
     var form = document.getElementById('idx-form');
@@ -178,27 +181,11 @@
         var isPhrase = /^".*"$/.test(rawQuery);
         var query = isPhrase ? rawQuery.slice(1, -1) : rawQuery;
 
-        // Client-side phrase filter for quoted queries: word-boundary regex match
+        // The sidecar has matched a quoted phrase against the title, the
+        // full content and the comments. It is not checked again here: with
+        // "context only" the content is a snippet, which need not hold the
+        // phrase.
         var results = data.results;
-        if (isPhrase && query) {
-            var escaped = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-            var phraseRegex = new RegExp(
-                '\\b' + escaped.replace(/\s+/g, '\\s+') + '\\b',
-                'i',
-            );
-            results = results.filter(function (entry) {
-                if (entry.content && phraseRegex.test(stripHtml(entry.content)))
-                    return true;
-                if (showComments && entry.comments) {
-                    return entry.comments.some(function (c) {
-                        return (
-                            c.content && phraseRegex.test(stripHtml(c.content))
-                        );
-                    });
-                }
-                return false;
-            });
-        }
 
         if (!results.length) {
             resultsEl.innerHTML =

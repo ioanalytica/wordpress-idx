@@ -2,7 +2,7 @@
 /**
  * Plugin Name: WordPress IDX Search
  * Description: Full-text search interface for the wordpress-idx sidecar API. Use the HTML comment &lt;!-- wordpress-idx-search --&gt; in any post or page to render the search form.
- * Version: 1.3.7
+ * Version: 1.3.8
  * Author: IO ANALYTICA
  * Author URI: https://ioanalytica.com
  * License: GPLv2 or later
@@ -29,7 +29,7 @@ class WordpressIdxSearch {
 
 	// Keep in sync with the plugin header "Version:" and readme.txt "Stable tag:".
 	// The single source of truth is app/package.json; run scripts/sync-version.sh.
-	const VERSION = '1.3.7';
+	const VERSION = '1.3.8';
 
 	const MARKER         = '<!-- wordpress-idx-search -->';
 	const OPTION_LANG    = 'idx_search_language';
@@ -305,6 +305,7 @@ class WordpressIdxSearch {
 		wp_enqueue_style( 'wordpress-idx-search' );
 		wp_enqueue_script( 'wordpress-idx-search' );
 		wp_localize_script( 'wordpress-idx-search', 'idxI18n', $this->i18n() );
+		wp_localize_script( 'wordpress-idx-search', 'idxConfig', array( 'apiBase' => $this->public_base() ) );
 
 		$html = $this->render_search_form();
 		return str_replace( self::MARKER, $html, $content );
@@ -503,7 +504,7 @@ class WordpressIdxSearch {
 							<input type="text" name="<?php echo esc_attr( self::OPTION_API_KEY ); ?>" id="idx_api_key"
 									value="<?php echo esc_attr( $api_key ); ?>" class="regular-text"
 									autocomplete="off"<?php disabled( $is_admin, false ); ?>>
-							<p class="description"><?php echo esc_html( $t['admin_api_key_desc'] ); ?> <code>POST /idx/api/reindex</code></p>
+							<p class="description"><?php echo esc_html( $t['admin_api_key_desc'] ); ?> <code>POST <?php echo esc_html( $this->public_base() ); ?>/api/reindex</code></p>
 						</td>
 					</tr>
 				</table>
@@ -564,14 +565,46 @@ class WordpressIdxSearch {
 	// ── Self-hosted updates ─────────────────────────────────
 
 	/**
-	 * Base URL of the wordpress-idx sidecar (same origin as the search API's
-	 * `/idx` calls). Overridable via the WORDPRESS_IDX_BASE constant.
+	 * Base URL of the wordpress-idx sidecar for the calls WordPress makes
+	 * itself (update check, index rebuild). Overridable via the
+	 * WORDPRESS_IDX_BASE constant; without it, the site's own URL and the
+	 * sidecar's default path.
 	 */
 	private function api_base() {
 		if ( defined( 'WORDPRESS_IDX_BASE' ) && WORDPRESS_IDX_BASE ) {
 			return rtrim( WORDPRESS_IDX_BASE, '/' );
 		}
 		return site_url( '/idx' );
+	}
+
+	/**
+	 * Path under which the browser reaches the sidecar on the site's own host:
+	 * what the search form's script calls. See base_path().
+	 */
+	public function public_base() {
+		return self::base_path( defined( 'WORDPRESS_IDX_BASE' ) ? WORDPRESS_IDX_BASE : '' );
+	}
+
+	/**
+	 * The path of a sidecar base URL, or `/idx` when it has none.
+	 *
+	 * The sidecar serves all its routes under one configurable path
+	 * (BASE_PATH), which is also the path the site's ingress routes to it. An
+	 * installation whose path is not `/idx` says so in WORDPRESS_IDX_BASE, as
+	 * the Helm chart does (`http://127.0.0.1:<port><path>`): host and port of
+	 * that URL are for WordPress' own calls, its path holds for both.
+	 *
+	 * A base URL without a path does not make the browser's path empty: a
+	 * sidecar that serves at its root is reached by the browser through a
+	 * proxy that adds a path, and the form has always called it under `/idx`.
+	 *
+	 * @param mixed $base A sidecar base URL, or a path.
+	 * @return string The path with a leading and without a trailing slash.
+	 */
+	public static function base_path( $base ) {
+		$path = is_string( $base ) && '' !== $base ? wp_parse_url( $base, PHP_URL_PATH ) : '';
+		$path = is_string( $path ) ? trim( $path, '/' ) : '';
+		return '' === $path ? '/idx' : '/' . $path;
 	}
 
 	/**

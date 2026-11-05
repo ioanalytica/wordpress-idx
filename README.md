@@ -1,6 +1,6 @@
 # wordpress-idx
 
-A lightweight Node.js sidecar that extracts published WordPress posts and pages, builds a [FlexSearch](https://github.com/nextapps-de/flexsearch) full-text index, and exposes a search & statistics REST API. Designed to run as an optional sidecar container in a WordPress pod on Kubernetes.
+A lightweight Node.js sidecar that extracts the public WordPress posts and pages, builds a [FlexSearch](https://github.com/nextapps-de/flexsearch) full-text index, and exposes a search & statistics REST API. Designed to run as an optional sidecar container in a WordPress pod on Kubernetes.
 
 The repository also holds the WordPress plugin that puts a search form in front of the API: [`plugin/wordpress-idx-search`](plugin/wordpress-idx-search). The sidecar image bundles the plugin and serves it to WordPress for updates (see [Plugin distribution](#plugin-distribution)).
 
@@ -25,7 +25,7 @@ All endpoints are served under the configurable `BASE_PATH` prefix (empty by def
 
 | Endpoint | Purpose | 200 when |
 |---|---|---|
-| `GET /healthz` | Liveness probe | DB connected or existing index found |
+| `GET /healthz` | Liveness probe | Existing index found, or DB connected to build one |
 | `GET /readyz`  | Readiness probe | Search index loaded and API ready |
 
 ### Search
@@ -34,11 +34,11 @@ All endpoints are served under the configurable `BASE_PATH` prefix (empty by def
 GET /api/search
 ```
 
-All parameters are optional. Omitting `q` returns all entries (metadata-only filtering). With `q`, the index returns at most 100 matches from the post content (and 100 more from comments with `include_comments`); the filters and `total` apply to those.
+All parameters are optional. Omitting `q` returns all entries (metadata-only filtering). With `q`, every entry whose title or content matches is returned (with `include_comments` also those whose comments match); `total` counts them all.
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `q` | string | | Full-text search query (FlexSearch forward tokenizer). Several words must all match; a query in double quotes (`"exact phrase"`) matches the phrase only |
+| `q` | string | | Full-text search query over titles and content (FlexSearch forward tokenizer). Several words must all match within one field, the title or the content; a query in double quotes (`"exact phrase"`) matches the phrase only |
 | `type` | string | | `post` or `page` |
 | `author` | string | | Case-insensitive substring match on author name |
 | `category` | string | | Case-insensitive exact match on category |
@@ -187,19 +187,19 @@ The image bundles the WordPress plugin, and the sidecar serves it so that WordPr
 | `CORS_ORIGIN` | `*` | Allowed CORS origin |
 | `REINDEX_API_KEY` | | API key for `/api/reindex` (disabled when empty) |
 | `FORCE_UPDATE` | `false` | Rebuild index on every startup |
-| `STARTUP_DELAY` | `0` | Seconds to wait before DB connection (sidecar startup ordering) |
+| `STARTUP_DELAY` | `0` | Seconds to wait before the first DB connection when the index has to be built (sidecar startup ordering) |
 | `PLUGIN_AUTO_UPDATE` | `true` | `false` makes the update manifest tell the plugin not to install its updates automatically |
 | `PLUGIN_ZIP_PATH` | `/app/wordpress-idx-search.zip` | The plugin package served at `/plugin/wordpress-idx-search.zip` |
 | `PLUGIN_SRC_PATH` | `/app/plugin-src`, else the checkout's `plugin/wordpress-idx-search` | The plugin tree the update manifest reads its version from |
 
 ## Data extraction
 
-Extracts all `publish`-status posts and pages from the WordPress database:
+Extracts the posts and pages that are public, which is `publish` status without a password, from the WordPress database:
 
-- Joins `wp_posts` with `wp_users` for author display names
+- Joins `wp_posts` with `wp_users` for author display names; a post whose author is not a WordPress user (author ID 0, or a deleted user) is included with an empty `author`
 - Joins `wp_term_relationships` / `wp_term_taxonomy` / `wp_terms` for categories and tags
 - Fetches approved comments from `wp_comments` (regular comments only, no pingbacks/trackbacks)
-- Strips HTML tags and decodes common entities
+- Strips HTML tags and decodes common entities in content and comments, and for the search also in titles (an entry's `title` stays as WordPress stores it)
 - Normalises whitespace
 - Uses a single DB connection, closed after extraction
 
@@ -214,7 +214,9 @@ Stored in `DATA_DIR`:
 | `wp-index-flex.json` | FlexSearch index chunks + entry metadata | Yes |
 | `wp-index-source.json` | Intermediate extraction output | Deleted after index build |
 
-On startup the app checks for `wp-index-flex.json`. If found, it loads the index directly (no DB connection needed). If missing or `FORCE_UPDATE=true`, it extracts from the database and builds the index.
+On startup the app checks for `wp-index-flex.json`. If found, it loads the index directly (no DB connection needed). If missing or `FORCE_UPDATE=true`, it extracts from the database and builds the index. A build that fails, because the database does not answer yet or WordPress has not created its tables, is tried again every 5 seconds until it succeeds; `/readyz` answers 503 in the meantime. A build that finds no public post or page is repeated once after the same pause before its empty index is served, because WordPress creates its tables a moment before it fills them; for the same reason an index file without entries is not loaded at a start but built again.
+
+The index file carries a format number. A file written by an earlier version of the sidecar, in another format, is not loaded: the index is built anew from the database at the first start of the new version, once.
 
 ## Kubernetes sidecar deployment
 
@@ -237,7 +239,8 @@ Key integration points:
 - **Ingress**: Path `/idx` routed to the sidecar's port 3000
 - **NetworkPolicy**: Port 3000 added to allowed ingress when `idx.enabled`
 - **Probes**: Liveness on `/healthz`, readiness on `/readyz`
-- **Startup delay**: Waits for WordPress to initialise before extracting from the shared database
+- **Startup delay**: Waits for WordPress to initialise before extracting from the shared database, and tries again until WordPress' tables are there
+- **Plugin**: The chart defines `WORDPRESS_IDX_BASE` for the plugin with the sidecar's address inside the pod and `basePath`. The plugin uses the whole URL for its own calls (update check, index rebuild) and its path for the calls of the search form in the browser; without the constant that path is `/idx`
 
 ## Container image
 
