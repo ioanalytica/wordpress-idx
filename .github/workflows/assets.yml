@@ -1,21 +1,34 @@
 name: Plugin (assets)
 
+# A pull request runs the job once, whatever files it touches: the ruleset on
+# main requires its check, and a workflow skipped by a path filter would leave
+# it pending for good. Pushes run the job on main only; a push to a topic
+# branch is covered by its pull request.
 on:
   push:
-    branches: ["**"]
+    branches: [main]
   pull_request:
   workflow_dispatch:
+
+# The job only reads the repository.
+permissions:
+  contents: read
 
 jobs:
   lint:
     name: ESLint + Stylelint + Prettier
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
+    timeout-minutes: 10
     defaults:
       run:
         working-directory: plugin/wordpress-idx-search
     steps:
-      - uses: actions/checkout@v7.0.1
-      - uses: actions/setup-node@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # The job pushes nothing back, so the token has no business staying
+          # behind in .git/config.
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: "24"
           cache: "npm"

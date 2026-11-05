@@ -1,29 +1,45 @@
 name: Plugin (PHP)
 
+# A pull request runs every job once, whatever files it touches: the ruleset
+# on main requires all four checks, and a workflow skipped by a path filter
+# would leave them pending for good. Pushes run the jobs on main only; a push
+# to a topic branch is covered by its pull request.
 on:
   push:
-    branches: ["**"]
+    branches: [main]
   pull_request:
   workflow_dispatch:
+
+# Every job only reads the repository.
+permissions:
+  contents: read
 
 jobs:
   version-sync:
     name: Version SSOT check
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
+    timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v7.0.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # No job pushes anything back, so the token has no business staying
+          # behind in .git/config.
+          persist-credentials: false
       - name: Plugin version matches app/package.json
         run: bash scripts/sync-version.sh --check
 
   lint:
     name: PHPCS
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
+    timeout-minutes: 10
     defaults:
       run:
         working-directory: plugin/wordpress-idx-search
     steps:
-      - uses: actions/checkout@v7.0.1
-      - uses: shivammathur/setup-php@v2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
         with:
           php-version: "8.2"
           tools: composer
@@ -35,7 +51,9 @@ jobs:
 
   test:
     name: PHPUnit (PHP ${{ matrix.php }})
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
+    # Downloads WordPress and its test library before the tests start.
+    timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
@@ -56,8 +74,10 @@ jobs:
       run:
         working-directory: plugin/wordpress-idx-search
     steps:
-      - uses: actions/checkout@v7.0.1
-      - uses: shivammathur/setup-php@v2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
         with:
           php-version: ${{ matrix.php }}
           extensions: mysqli

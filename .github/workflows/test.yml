@@ -1,23 +1,38 @@
 name: Tests
 
+# A pull request runs every job once, whatever files it touches: the ruleset
+# on main requires `test` and `test (with MySQL)`, and a workflow skipped by a
+# path filter would leave them pending for good. Pushes run the jobs on main
+# only; a push to a topic branch is covered by its pull request.
 on:
   push:
-    branches: ["**"]
+    branches: [main]
   pull_request:
   workflow_dispatch:
 
+# Every job only reads the repository.
+permissions:
+  contents: read
+
 jobs:
   test:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
+    # A run takes about a minute; without a limit a hung job holds the run
+    # for GitHub's default of six hours.
+    timeout-minutes: 10
     defaults:
       run:
         working-directory: app
     steps:
       - name: Checkout
-        uses: actions/checkout@v7.0.1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # No job pushes anything back, so the token has no business staying
+          # behind in .git/config.
+          persist-credentials: false
 
       - name: Set up Node.js
-        uses: actions/setup-node@v7
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: "24"
           cache: "npm"
@@ -34,7 +49,8 @@ jobs:
   # expansion in `IN (?)` that groups terms and comments, and DATETIME mapping.
   test-db:
     name: test (with MySQL)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
+    timeout-minutes: 10
     defaults:
       run:
         working-directory: app
@@ -60,10 +76,12 @@ jobs:
       IDX_TEST_DB_NAME: wordpress_idx_test
     steps:
       - name: Checkout
-        uses: actions/checkout@v7.0.1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Set up Node.js
-        uses: actions/setup-node@v7
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: "24"
           cache: "npm"
