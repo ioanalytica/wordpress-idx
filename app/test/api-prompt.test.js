@@ -16,8 +16,8 @@ import { buildTestIndex } from './helpers.js';
 //     no `### METHOD /path` heading in API_PROMPT.md, and a heading without a
 //     route;
 //   - a query parameter that a handler of the search router reads by name,
-//     which is not written as `name` in API_PROMPT.md, and a parameter in the
-//     file's parameter table that no handler reads;
+//     which is not in the first column of the file's parameter table, and a
+//     parameter in that table which no handler reads;
 //   - a request header that POST /api/reindex reads, which the file does not
 //     name;
 //   - `req.query` appearing in a source file other than searcher.js, whose
@@ -26,10 +26,12 @@ import { buildTestIndex } from './helpers.js';
 // What it cannot detect:
 //   - whether a description is right: a changed default, type, matching rule,
 //     status code or response field passes as long as the names are there;
-//   - which endpoint a parameter is documented for: the name is looked up in
-//     the whole file;
-//   - a route whose path is not a string literal, or that is registered in a
-//     way the scan does not know (router.route(), a path prefix in use());
+//   - which endpoint a parameter is documented for: the file has one
+//     parameter table, which /api/stats refers to;
+//   - a route in index.js whose path is not a string literal, or that is
+//     registered in a way the scan does not know (router.route(), a path
+//     prefix in use()). The other files' routers are instantiated here and the
+//     scan must agree with what they register;
 //   - a parameter read without naming it (a loop over the query's keys), read
 //     through another name than `req.query`, or read only on a branch the four
 //     probe values below do not reach.
@@ -40,6 +42,13 @@ const SOURCES = readdirSync(SRC_DIR)
   .filter((name) => name.endsWith('.js'))
   .map((name) => ({ name, text: readFileSync(new URL(name, SRC_DIR), 'utf-8') }));
 
+// Source text without comments, so that a route that is commented out does not
+// count. Only comments that start a line are removed: `//` inside a line can
+// be part of a string or a regular expression.
+function withoutComments(text) {
+  return text.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+}
+
 // Routes that are deliberately not part of the agent reference. A new route
 // must be documented in API_PROMPT.md or listed here with the reason.
 const NOT_FOR_AGENTS = new Map([
@@ -49,17 +58,18 @@ const NOT_FOR_AGENTS = new Map([
 
 const METHODS = 'get|post|put|patch|delete|all';
 
-// `router.get('/path', …)` and friends, in any source file. index.js cannot be
+// `router.get('/path', …)` and friends in one source file. index.js cannot be
 // imported here (it starts the server), so its routes are only seen this way.
-function scanRoutes() {
+function scanRoutes(name) {
   const pattern = new RegExp(`\\.(${METHODS})\\(\\s*(['"\`])(/[^'"\`]*)\\2`, 'g');
-  const routes = new Set();
-  for (const { text } of SOURCES) {
-    for (const [, method, , path] of text.matchAll(pattern)) {
-      routes.add(`${method.toUpperCase()} ${path}`);
-    }
-  }
-  return routes;
+  const { text } = SOURCES.find((source) => source.name === name);
+  return [...withoutComments(text).matchAll(pattern)]
+    .map(([, method, , path]) => `${method.toUpperCase()} ${path}`)
+    .sort();
+}
+
+function scanAllRoutes() {
+  return new Set(SOURCES.flatMap(({ name }) => scanRoutes(name)));
 }
 
 // The routes a router really registered, to check the scan against.
@@ -70,7 +80,8 @@ function registeredRoutes(router) {
       Object.keys(layer.route.methods).map(
         (method) => `${method.replace('_all', 'all').toUpperCase()} ${layer.route.path}`,
       ),
-    );
+    )
+    .sort();
 }
 
 // `### GET /api/search` headings.
@@ -147,13 +158,21 @@ function searchRouter() {
 }
 
 describe('API_PROMPT.md endpoints', () => {
-  const inCode = scanRoutes();
+  const inCode = scanAllRoutes();
   const inDoc = documentedRoutes();
 
-  test('the source scan finds every route the routers register', () => {
-    const routers = [searchRouter(), createReindexRouter(() => 0), createPluginRouter()];
-    for (const route of routers.flatMap(registeredRoutes)) {
-      assert.ok(inCode.has(route), `${route} is registered but the scan in this test missed it`);
+  test('the source scan agrees with the routes the routers register', () => {
+    const routers = {
+      'searcher.js': searchRouter(),
+      'reindex.js': createReindexRouter(() => 0),
+      'plugin.js': createPluginRouter(),
+    };
+    for (const [name, router] of Object.entries(routers)) {
+      assert.deepEqual(
+        scanRoutes(name),
+        registeredRoutes(router),
+        `the scan of ${name} in this test and the routes its router registers differ`,
+      );
     }
   });
 
@@ -182,13 +201,14 @@ describe('API_PROMPT.md endpoints', () => {
 });
 
 describe('API_PROMPT.md query parameters', () => {
-  test('every query parameter the handlers read is named', async () => {
+  test('every query parameter the handlers read is in the table', async () => {
     const read = await queryParamsRead(searchRouter());
+    const documented = documentedParams();
     assert.ok(read.size > 0, 'the handlers read no query parameter: the probe no longer works');
     for (const name of read) {
       assert.ok(
-        DOC.includes(`\`${name}\``),
-        `the code reads the query parameter "${name}" but API_PROMPT.md does not name it`,
+        documented.has(name),
+        `the code reads the query parameter "${name}" but the parameter table in API_PROMPT.md does not list it`,
       );
     }
   });
