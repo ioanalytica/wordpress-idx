@@ -1,7 +1,10 @@
 (function () {
     'use strict';
 
-    var API_BASE = '/idx';
+    // The sidecar's path on this host. The plugin passes it (idxConfig), since
+    // the path is configurable; '/idx' is the sidecar's default.
+    var config = window.idxConfig || {};
+    var API_BASE = config.apiBase || '/idx';
     var t = window.idxI18n || {};
 
     var form = document.getElementById('idx-form');
@@ -187,6 +190,8 @@
                 'i',
             );
             results = results.filter(function (entry) {
+                // The sidecar matches a phrase in the title as well.
+                if (entry.title && phraseRegex.test(entry.title)) return true;
                 if (entry.content && phraseRegex.test(stripHtml(entry.content)))
                     return true;
                 if (showComments && entry.comments) {
