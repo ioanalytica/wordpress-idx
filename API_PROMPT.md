@@ -23,7 +23,7 @@ Full-text search and metadata filtering. All parameters are optional query strin
 | `context` | boolean | `true` returns a ~500-char snippet around the match instead of the full content (only with `q`) |
 | `include_comments` | boolean | `true` includes comment text in the full-text search (default: `false`, searches post content only) |
 
-Response: `{ "total": number, "results": Entry[] }`. `total` counts all matches, before `limit` is applied.
+Response: `{ "total": number, "results": Entry[] }`. `total` counts the matches before `limit` is applied; with `q` it is capped, see Key Behaviours.
 
 ### GET /api/entry/:id
 
@@ -76,11 +76,12 @@ Liveness probe: 200 `{ "status": "ok", "ready": boolean }` once the service has 
 ## Key Behaviours
 
 - `q` uses FlexSearch forward tokenizer: "kube" matches "kubernetes". Without `q`, all entries are returned and only metadata filters apply.
-- `q="exact phrase"` keeps only entries in which the words follow each other as whole words, case-insensitive, with any whitespace between them.
+- With `q`, the index returns at most 100 matches from the post content, and at most 100 more from the comment text with `include_comments=true`. The phrase check and all metadata filters apply to those matches only, so `total`, `results` and `/api/stats` can miss entries when a query matches more. Without `q` there is no such cap.
+- `q="exact phrase"` keeps only entries in which the words follow each other as whole words, case-insensitive, with any whitespace between them. Word boundaries know ASCII letters only: a phrase that starts or ends with another letter (`ä`, `é`, `ß`) matches nothing.
 - `include_comments=true` extends `q` matching to comment text. Comments are always present in the response regardless of this flag.
 - `context=true` with `q` returns a ~500-char snippet around the first place where `q` occurs literally in the content, with `...` where text was cut. If `include_comments=true` and `q` occurs only in comments, the snippet is drawn from comment text. If `q` does not occur literally (several words that are apart, or a quoted phrase, whose quotes are part of the lookup), the first 500 chars of the content are returned.
 - Filters are combined with AND logic. All filters are optional and can be mixed freely.
 - Date ranges are inclusive. Partial dates expand: `from=2024` → Jan 1 2024, `to=2024` → Dec 31 2024.
 - Without `q`, results come newest first. With `q`, they come in the index's match order, not by date.
 - Slugs are always formatted as `/{post_name}/`.
-- A failed request returns 500 with `{ "error": string, "message": string }`.
+- An unexpected failure returns 500 with `{ "error": string, "message": string }`; the 4xx and 503 answers of the `/api/` endpoints carry an `error` text as well.
