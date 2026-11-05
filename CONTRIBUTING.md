@@ -27,7 +27,8 @@ Thanks for helping. Bug reports, questions and pull requests are all welcome.
 ## Running the checks
 
 CI runs the checks below on every push and every pull request
-(`.github/workflows/`). All of them run locally.
+(`.github/workflows/`). All of them run locally; each block of commands
+starts in the repository root.
 
 ### Sidecar tests
 
