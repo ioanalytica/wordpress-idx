@@ -84,4 +84,4 @@ Liveness probe: 200 `{ "status": "ok", "ready": boolean }` once the service has 
 - Date ranges are inclusive. Partial dates expand: `from=2024` → Jan 1 2024, `to=2024` → Dec 31 2024.
 - Without `q`, results come newest first. With `q`, they come in the index's match order, not by date.
 - Slugs are always formatted as `/{post_name}/`.
-- An unexpected failure returns 500 with `{ "error": string, "message": string }`; the 4xx and 503 answers of the `/api/` endpoints carry an `error` text as well.
+- An unexpected failure returns 500 with `{ "error": string, "message": string }`; the 4xx and 503 answers of the `/api/` endpoints carry an `error` text as well, except the 404 before the index is loaded.
