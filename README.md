@@ -9,14 +9,13 @@ The repository also holds the WordPress plugin that puts a search form in front 
 ## Quick start
 
 ```bash
-cd app
-cp ../.env.example .env   # fill in the DB credentials
-mkdir -p data             # DATA_DIR=./data in .env.example
-npm install
-npm start
+cp .env.example .env    # fill in the DB credentials
+mkdir -p data           # DATA_DIR=./data in .env.example
+npm --prefix app ci
+node app/src/index.js
 ```
 
-The app loads `.env` from the directory it is started in, and `DATA_DIR` must exist: the app does not create it.
+The app loads `.env` from the directory it is started in, here the repository root, and `DATA_DIR` must exist: the app does not create it. `.env` and `data/` at the root are ignored by git and kept out of the image's build context.
 
 ## API
 
@@ -35,7 +34,7 @@ All endpoints are served under the configurable `BASE_PATH` prefix (empty by def
 GET /api/search
 ```
 
-All parameters are optional. Omitting `q` returns all entries (metadata-only filtering).
+All parameters are optional. Omitting `q` returns all entries (metadata-only filtering). With `q`, the index returns at most 100 matches from the post content (and 100 more from comments with `include_comments`); the filters and `total` apply to those.
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
@@ -247,7 +246,7 @@ Key integration points:
 ./docker-build.sh
 ```
 
-The script reads the image tag from `version` in `app/package.json`, asks before it builds (`-y` skips the question) and lints the `Dockerfile` with [hadolint](https://github.com/hadolint/hadolint), which must be installed. With `--push` it builds for `linux/amd64` and `linux/arm64` and pushes the image instead of loading it, which needs write access to the registry.
+The script reads the image tag from `version` in `app/package.json`, asks before it builds (`-y` skips the question) and runs [hadolint](https://github.com/hadolint/hadolint) on the `Dockerfile` first; its findings are printed and do not stop the build. With `--push` it builds for `linux/amd64` and `linux/arm64` and pushes the image instead of loading it, which needs write access to the registry.
 
 Image: `node:26-alpine`, non-root (`node` user).
 
