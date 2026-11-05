@@ -594,6 +594,10 @@ class WordpressIdxSearch {
 	 * the Helm chart does (`http://127.0.0.1:<port><path>`): host and port of
 	 * that URL are for WordPress' own calls, its path holds for both.
 	 *
+	 * A base URL without a path does not make the browser's path empty: a
+	 * sidecar that serves at its root is reached by the browser through a
+	 * proxy that adds a path, and the form has always called it under `/idx`.
+	 *
 	 * @param mixed $base A sidecar base URL, or a path.
 	 * @return string The path with a leading and without a trailing slash.
 	 */

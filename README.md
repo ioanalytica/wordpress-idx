@@ -199,7 +199,7 @@ Extracts the posts and pages that are public, which is `publish` status without 
 - Joins `wp_posts` with `wp_users` for author display names; a post whose author is not a WordPress user (author ID 0, or a deleted user) is included with an empty `author`
 - Joins `wp_term_relationships` / `wp_term_taxonomy` / `wp_terms` for categories and tags
 - Fetches approved comments from `wp_comments` (regular comments only, no pingbacks/trackbacks)
-- Strips HTML tags and decodes common entities
+- Strips HTML tags and decodes common entities in content and comments, and for the search also in titles (an entry's `title` stays as WordPress stores it)
 - Normalises whitespace
 - Uses a single DB connection, closed after extraction
 
@@ -214,7 +214,7 @@ Stored in `DATA_DIR`:
 | `wp-index-flex.json` | FlexSearch index chunks + entry metadata | Yes |
 | `wp-index-source.json` | Intermediate extraction output | Deleted after index build |
 
-On startup the app checks for `wp-index-flex.json`. If found, it loads the index directly (no DB connection needed). If missing or `FORCE_UPDATE=true`, it extracts from the database and builds the index. A build that fails, because the database does not answer yet or WordPress has not created its tables, is tried again every 5 seconds until it succeeds; `/readyz` answers 503 in the meantime.
+On startup the app checks for `wp-index-flex.json`. If found, it loads the index directly (no DB connection needed). If missing or `FORCE_UPDATE=true`, it extracts from the database and builds the index. A build that fails, because the database does not answer yet or WordPress has not created its tables, is tried again every 5 seconds until it succeeds; `/readyz` answers 503 in the meantime. A build that finds no public post or page is repeated once after the same pause before its empty index is served, because WordPress creates its tables a moment before it fills them.
 
 The index file carries a format number. A file written by an earlier version of the sidecar, in another format, is not loaded: the index is built anew from the database at the first start of the new version, once.
 

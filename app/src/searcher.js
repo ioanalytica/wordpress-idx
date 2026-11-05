@@ -47,7 +47,7 @@ export function createSearchRouter(index, entriesMap) {
       if (!entry) {
         return res.status(404).json({ error: 'Not found', message: `No entry with ID ${id}` });
       }
-      const { commentsText, ...rest } = entry;
+      const { commentsText, titleText, ...rest } = entry;
       res.json(rest);
     } catch (err) {
       console.error('Entry lookup error:', err.message);
@@ -169,7 +169,7 @@ function filterEntries(query, index, entriesMap) {
       const escaped = searchTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       const phraseRegex = new RegExp('\\b' + escaped.replace(/\s+/g, '\\s+') + '\\b', 'i');
       candidates = candidates.filter((e) => {
-        if (e.title && phraseRegex.test(e.title)) return true;
+        if (e.titleText && phraseRegex.test(e.titleText)) return true;
         if (e.content && phraseRegex.test(e.content)) return true;
         if (include_comments === 'true' && e.comments) {
           return e.comments.some((c) => c.content && phraseRegex.test(c.content));

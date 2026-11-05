@@ -21,16 +21,18 @@ export async function extractAll() {
   const pool = createPool();
   try {
     // 1. Fetch the posts and pages that are public: published, and without a
-    //    password. The author is optional (LEFT JOIN): a post whose
-    //    post_author is 0, or names a user that was deleted, is published
-    //    content all the same and gets an empty author.
+    //    password. The password is checked by its length: the collations of
+    //    WordPress' tables pad with spaces when they compare, so a password
+    //    of spaces would equal ''. The author is optional (LEFT JOIN): a post
+    //    whose post_author is 0, or names a user that was deleted, is
+    //    published content all the same and gets an empty author.
     const [posts] = await pool.query(`
       SELECT p.ID, p.post_type, p.post_title, p.post_date, p.post_content,
              p.post_name, COALESCE(u.display_name, '') AS author
       FROM ${prefix}posts p
       LEFT JOIN ${prefix}users u ON p.post_author = u.ID
       WHERE p.post_status = 'publish'
-        AND p.post_password = ''
+        AND LENGTH(p.post_password) = 0
         AND p.post_type IN ('post', 'page')
       ORDER BY p.post_date DESC
     `);
@@ -102,6 +104,9 @@ export async function extractAll() {
         type: p.post_type,
         author: p.author,
         title: p.post_title,
+        // What a query is matched against: the title as it reads, without
+        // the entities and tags it is stored with.
+        titleText: stripHtml(p.post_title),
         date: p.post_date,
         slug: `/${p.post_name}/`,
         categories: postTerms.categories,

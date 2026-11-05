@@ -39,7 +39,9 @@ const SEED = [
        (14,1,'2024-02-01 10:00:00','Attachment body','Attachment','publish','','att','attachment'),
        (15,0,'2020-05-01 10:00:00','Created without an author','No Author','publish','','no-author','post'),
        (16,99,'2020-04-01 10:00:00','Its author was deleted','Former Author','publish','','former-author','post'),
-       (17,1,'2024-03-01 10:00:00','Behind a password','Protected','publish','secret','protected','post')`,
+       (17,1,'2024-03-01 10:00:00','Behind a password','Protected','publish','secret','protected','post'),
+       (18,1,'2024-03-02 10:00:00','Behind a password of spaces','Protected too','publish','   ','protected-too','post'),
+       (19,2,'2019-01-01 10:00:00','Cats and dogs','Tom &amp; <em>Jerry</em>','publish','','tom-and-jerry','post')`,
   ],
   [`INSERT INTO ${PREFIX}terms (term_id, name) VALUES (1,'News'),(2,'intro'),(3,'Info')`],
   [
@@ -98,7 +100,7 @@ describe('mysql2 database layer', { skip: ENABLED ? false : 'set IDX_TEST_DB=1 a
   test('extractAll() returns only published posts and pages, newest first', () => {
     assert.deepEqual(
       entries.map((e) => e.id),
-      [12, 11, 10, 15, 16],
+      [12, 11, 10, 15, 16, 19],
       'drafts and non post/page types must be excluded, ordered by post_date DESC',
     );
   });
@@ -120,6 +122,7 @@ describe('mysql2 database layer', { skip: ENABLED ? false : 'set IDX_TEST_DB=1 a
   // the comments only after the password was entered.
   test('leaves out a post that is protected by a password, with its comments', () => {
     assert.equal(entries.find((e) => e.id === 17), undefined);
+    assert.equal(entries.find((e) => e.id === 18), undefined, 'a password of spaces is a password');
     const text = JSON.stringify(entries);
     assert.ok(!text.includes('Behind a password'));
     assert.ok(!text.includes('Comment on the protected post'));
@@ -128,6 +131,16 @@ describe('mysql2 database layer', { skip: ENABLED ? false : 'set IDX_TEST_DB=1 a
   test('joins the author display name', () => {
     assert.equal(entries.find((e) => e.id === 10).author, 'Alice');
     assert.equal(entries.find((e) => e.id === 11).author, 'Bob');
+  });
+
+  // WordPress stores a title as it is typed into the editor, with entities
+  // and the few tags a title may have. The search matches the plain text;
+  // the response keeps the title as stored.
+  test('keeps the title as stored and adds its plain text for the search', () => {
+    const post = entries.find((e) => e.id === 19);
+    assert.equal(post.title, 'Tom &amp; <em>Jerry</em>');
+    assert.equal(post.titleText, 'Tom & Jerry');
+    assert.equal(entries.find((e) => e.id === 10).titleText, 'Hello World');
   });
 
   test('maps slug and type', () => {

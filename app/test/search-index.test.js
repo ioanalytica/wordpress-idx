@@ -26,6 +26,7 @@ describe('a query that matches more than 100 entries', () => {
       type: id % 2 ? 'post' : 'page',
       author: id % 5 ? 'Alice' : 'Bob',
       title: `Entry ${id}`,
+      titleText: `Entry ${id}`,
       date: '2022-01-01T10:00:00Z',
       slug: `/entry-${id}/`,
       categories: [],
@@ -96,7 +97,7 @@ describe('a query matches titles', () => {
 
   test('an entry that matches in title and content is returned once', async () => {
     const both = [
-      { ...SAMPLE_ENTRIES[0], title: 'Tomatoes in spring', content: 'How to grow tomatoes.' },
+      { ...SAMPLE_ENTRIES[0], title: 'Tomatoes in spring', titleText: 'Tomatoes in spring', content: 'How to grow tomatoes.' },
       SAMPLE_ENTRIES[2],
     ];
     const local = await serve(both);
@@ -118,6 +119,33 @@ describe('a query matches titles', () => {
     // "world" ends the title of entry 1, "welcome" starts its content.
     const { body } = await api.get(`/api/search?q=${encodeURIComponent('"world welcome"')}`);
     assert.equal(body.total, 0);
+  });
+
+  // A title is stored with entities and may hold a few tags; the extractor
+  // adds its plain text as titleText, and that is what a query matches.
+  test('a title is matched as it reads, and returned as it is stored', async () => {
+    const stored = 'Tom &amp; <em>Jerry</em>';
+    const local = await serve([
+      { ...SAMPLE_ENTRIES[0], title: stored, titleText: 'Tom & Jerry' },
+      SAMPLE_ENTRIES[2],
+    ]);
+    try {
+      const phrase = await local.get(`/api/search?q=${encodeURIComponent('"tom & jerry"')}`);
+      assert.deepEqual(phrase.body.results.map((r) => r.id), [1]);
+      assert.equal(phrase.body.results[0].title, stored);
+      assert.equal(phrase.body.results[0].titleText, undefined);
+
+      // Neither the entity nor the tag is a word of the title.
+      assert.equal((await local.get('/api/search?q=amp')).body.total, 0);
+      assert.equal((await local.get('/api/search?q=em')).body.total, 0);
+
+      const entry = await local.get('/api/entry/1');
+      assert.equal(entry.body.title, stored);
+      assert.equal(entry.body.titleText, undefined);
+      assert.equal(entry.body.commentsText, undefined);
+    } finally {
+      await local.close();
+    }
   });
 
   test('context=true returns the start of the content when only the title matches', async () => {

@@ -2,7 +2,8 @@ import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 import { prepareIndex } from '../src/startup.js';
 
-const INDEX = { format: 2, entries: [], flexIndex: {} };
+const INDEX = { format: 2, entries: [{ id: 1 }], flexIndex: {} };
+const EMPTY = { format: 2, entries: [], flexIndex: {} };
 
 // Records what prepareIndex() does, with stand-ins for the file, the
 // database and the clock.
@@ -88,6 +89,32 @@ describe('prepareIndex()', () => {
       'connect', 'sleep 5000',
       'connect', 'alive', 'build', 'read',
     ]);
+  });
+
+  // WordPress creates its tables a moment before it fills them.
+  test('builds an empty index a second time before it accepts it', async () => {
+    const filled = harness({ files: [null, EMPTY, INDEX] });
+    assert.equal(await prepareIndex({ ...filled.deps, retryDelayMs: 5000 }), INDEX);
+    assert.deepEqual(filled.calls, [
+      'read',
+      'connect', 'alive', 'build', 'read', 'sleep 5000',
+      'connect', 'alive', 'build', 'read',
+    ]);
+
+    // A site without a public post or page: empty both times, then served.
+    const empty = harness({ files: [null, EMPTY, EMPTY] });
+    assert.equal(await prepareIndex({ ...empty.deps, retryDelayMs: 5000 }), EMPTY);
+    assert.deepEqual(empty.calls, [
+      'read',
+      'connect', 'alive', 'build', 'read', 'sleep 5000',
+      'connect', 'alive', 'build', 'read',
+    ]);
+  });
+
+  test('loads an existing empty index as it is', async () => {
+    const h = harness({ files: [EMPTY] });
+    assert.equal(await prepareIndex(h.deps), EMPTY);
+    assert.deepEqual(h.calls, ['read', 'alive']);
   });
 
   test('tries again when the file it has just written cannot be loaded', async () => {

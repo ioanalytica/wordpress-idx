@@ -190,8 +190,10 @@
                 'i',
             );
             results = results.filter(function (entry) {
-                // The sidecar matches a phrase in the title as well.
-                if (entry.title && phraseRegex.test(entry.title)) return true;
+                // The sidecar matches a phrase in the title as well, in its
+                // plain text.
+                if (entry.title && phraseRegex.test(stripHtml(entry.title)))
+                    return true;
                 if (entry.content && phraseRegex.test(stripHtml(entry.content)))
                     return true;
                 if (showComments && entry.comments) {

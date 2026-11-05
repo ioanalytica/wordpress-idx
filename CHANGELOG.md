@@ -10,8 +10,8 @@ plugin share one version; the entry of a version is its release notes.
   counted only those. They now see every entry that matches.
 * **A query matches titles.** The index covered the content and the comments
   of an entry; a word that stood only in its title found nothing. Titles are
-  now searched like the content, also by a quoted phrase, in the API and in
-  the plugin's search form. Several words must still all occur in one field:
+  now searched like the content, as plain text and also by a quoted phrase,
+  in the API and in the plugin's search form. Several words must still all occur in one field:
   the title, the content or, with `include_comments`, the comments.
 * **Posts without an author are in the index.** A published post or page
   whose author is not a WordPress user (author ID 0, as `wp post create`
@@ -29,7 +29,8 @@ plugin share one version; the entry of a version is its release notes.
 * **The sidecar waits for WordPress.** The index was built in one attempt
   after the start; when the database did not answer yet or WordPress had
   not created its tables, the sidecar stayed without an index until it was
-  restarted. It now tries again every 5 seconds until the build succeeds.
+  restarted. It now tries again every 5 seconds until the build succeeds,
+  and builds an index without entries a second time before it serves it.
 * **The plugin's search form follows the sidecar's path.** Its script called
   the sidecar under `/idx`, whatever path the sidecar was configured with
   (`BASE_PATH`, `idx.basePath` in the Helm chart). It now uses the path of

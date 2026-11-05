@@ -21,6 +21,9 @@ export const DB = {
 // literals below are safe.
 export const TABLES = ['comments', 'term_relationships', 'term_taxonomy', 'terms', 'posts', 'users'];
 
+// post_password has the collation WordPress gives its tables. It pads with
+// spaces when it compares, unlike the default of MySQL 8.0: there a password
+// of spaces equals the empty string.
 export function ddl(prefix) {
   return [
   `CREATE TABLE ${prefix}users (
@@ -34,7 +37,7 @@ export function ddl(prefix) {
      post_content LONGTEXT NOT NULL,
      post_title TEXT NOT NULL,
      post_status VARCHAR(20) NOT NULL DEFAULT 'publish',
-     post_password VARCHAR(255) NOT NULL DEFAULT '',
+     post_password VARCHAR(255) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '',
      post_name VARCHAR(200) NOT NULL DEFAULT '',
      post_type VARCHAR(20) NOT NULL DEFAULT 'post'
    )`,

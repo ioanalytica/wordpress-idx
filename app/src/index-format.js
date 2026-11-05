@@ -6,12 +6,14 @@ import { Document } from 'flexsearch';
 // database at the next start instead of being loaded (see startup.js).
 //
 //   1  (files without a format) content and comment text
-//   2  titles are indexed; entries without a WordPress user are included;
-//      only entries that are public without a password
+//   2  titles are indexed, as plain text (titleText); entries without a
+//      WordPress user are included; only entries that are public without a
+//      password
 export const INDEX_FORMAT = 2;
 
-// The entry fields a query is matched against.
-export const TEXT_FIELDS = ['title', 'content'];
+// The entry fields a query is matched against. titleText and commentsText
+// exist for the search only and are not part of an entry in a response.
+export const TEXT_FIELDS = ['titleText', 'content'];
 export const COMMENT_FIELD = 'commentsText';
 
 // The one definition of the index, for building, loading and the tests: an
