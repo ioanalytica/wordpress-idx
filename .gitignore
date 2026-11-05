@@ -1,12 +1,10 @@
 .*
 !.gitignore
 !.gitmodules
-!.gitlab-ci.*
 !.dockerignore
 !.github
 !.coderabbit.yaml
 !.env.example
-!.planning.md
 !.distignore
 
 node_modules/
