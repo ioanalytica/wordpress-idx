@@ -255,7 +255,7 @@ A new version of the sidecar reaches users when wordpress-nginx moves its submod
 The images are signed with [Sigstore](https://www.sigstore.dev/) cosign, keyless. The identity in the certificate is the release workflow of wordpress-nginx, running for the release's tag, not a workflow of this repository. Resolve the tag once and use the digest from then on. With [cosign](https://docs.sigstore.dev/cosign/system_config/installation/) 3:
 
 ```sh
-version=<chart version>   # the image's tag, for example 7.1.409
+version=7.1.409   # the image's tag: the chart version of the release you run
 repo=ghcr.io/ioanalytica/wordpress-idx
 digest=$(docker buildx imagetools inspect "$repo:$version" --format '{{json .Manifest}}' | jq -r .digest)
 cosign verify "$repo@$digest" \
