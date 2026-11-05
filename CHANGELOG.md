@@ -36,6 +36,10 @@ plugin share one version; the entry of a version is its release notes.
   (`BASE_PATH`, `idx.basePath` in the Helm chart). It now uses the path of
   `WORDPRESS_IDX_BASE`, which the chart defines, and `/idx` without it. The
   settings page shows the same path.
+* **The search form shows every result of a quoted phrase.** The form
+  checked the phrase a second time in the browser. With "context snippet
+  only" it checked the snippet, and dropped a result whose phrase lies
+  outside it. The sidecar's match now stands.
 
 ### Project
 

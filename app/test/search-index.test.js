@@ -192,6 +192,31 @@ describe('an entry without an author', () => {
   });
 });
 
+// The plugin's search form shows what the API returns and does not check a
+// phrase a second time: with context=true it would check a snippet.
+describe('a quoted phrase with context=true', () => {
+  const filler = 'Lorem ipsum dolor sit amet. '.repeat(40);
+  const entries = [
+    { ...SAMPLE_ENTRIES[2], id: 5, content: `${filler}The phrase green tomatoes comes late.` },
+  ];
+
+  let api;
+  before(async () => {
+    api = await serve(entries);
+  });
+  after(async () => {
+    await api.close();
+  });
+
+  test('returns an entry whose phrase lies outside the snippet', async () => {
+    assert.ok(filler.length > 500);
+    const { body } = await api.get(`/api/search?context=true&q=${encodeURIComponent('"green tomatoes"')}`);
+    assert.equal(body.total, 1);
+    assert.equal(body.results[0].id, 5);
+    assert.ok(!body.results[0].content.includes('green tomatoes'), 'the snippet is the start of the content');
+  });
+});
+
 describe('a query of several words', () => {
   let api;
   before(async () => {

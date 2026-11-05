@@ -75,6 +75,7 @@ The search UI is available in German, English, French, and Spanish. The language
 = 1.3.8 =
 * The search form calls the sidecar under the path of `WORDPRESS_IDX_BASE` instead of a fixed `/idx`
 * A quoted phrase is also found in titles, which the sidecar searches from this version on
+* A quoted phrase with "context snippet only" no longer loses results whose phrase lies outside the snippet: the form shows what the sidecar matched
 * Versions 1.3.0 to 1.3.7: see CHANGELOG.md in the plugin's repository
 
 = 1.2.0 =
