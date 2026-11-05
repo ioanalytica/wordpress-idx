@@ -1,0 +1,31 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+#
+# CodeRabbit configuration. The $schema line above is not decoration: unknown
+# keys are ignored silently, so a setting at the wrong nesting level looks
+# exactly like a working one.
+#
+# NB: CodeRabbit reads this file from the HEAD branch of a pull request — the
+# branch under review — not from the base branch. Keeping it on main is what
+# makes branches cut from main inherit it; a branch that already existed
+# before this file has to pick it up, or CodeRabbit falls back to the settings
+# in the CodeRabbit UI and only comments.
+#
+# The file is a dot file, and .gitignore ignores those: the exception
+# `!.coderabbit.yaml` there keeps it tracked.
+#
+# There is deliberately no reviews.auto_review.base_branches here. The setting
+# can only ADD branches to the default one ("Base branches (other than the
+# default branch) to review") — there is no way to exclude a branch. Since
+# main is the default branch and the only long-lived one, it is reviewed
+# implicitly and the setting would be a no-op. Should pull requests into another
+# base branch become a thing, add it here explicitly.
+
+language: en-US
+
+reviews:
+  # Submit a real review verdict instead of a plain comment: "Changes requested"
+  # while actionable comments are open, "Approved" once they are resolved and no
+  # pre-merge check is in an error state (`@coderabbitai resolve` also triggers
+  # it). Without this, CodeRabbit only ever COMMENTs, the pull request has no
+  # review decision, and the PR list shows no approval state.
+  request_changes_workflow: true
