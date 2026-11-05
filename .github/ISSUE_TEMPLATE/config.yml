@@ -1,0 +1,11 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Question or idea
+    url: https://github.com/ioanalytica/wordpress-idx/discussions
+    about: Ask and discuss in GitHub Discussions.
+  - name: Security vulnerability
+    url: https://github.com/ioanalytica/wordpress-idx/security/advisories/new
+    about: Report it privately, never in a public issue.
+  - name: Helm chart that deploys the sidecar
+    url: https://github.com/ioanalytica/wordpress-nginx/issues
+    about: The chart is developed in wordpress-nginx; values, ingress and probes are decided there.
