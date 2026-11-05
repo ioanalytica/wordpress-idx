@@ -134,9 +134,20 @@ A pull request is easiest to review when it:
   anything a user of the sidecar or the plugin notices;
 - uses the commit style of the history: `feat: …`, `fix(plugin): …`,
   `test: …`, `docs: …`, `ci: …`, with the reason in the body. The pull
-  request's title follows the same style.
+  request's title follows the same style;
+- has every commit signed off, see below.
 
 Code, comments, documentation and commit messages are in English.
+
+## Sign your commits (DCO)
+
+Every commit must carry a `Signed-off-by` line, certifying the
+[Developer Certificate of Origin](https://developercertificate.org/): that you
+wrote the change or otherwise have the right to submit it under the license of
+the part it changes. `git commit -s` adds the line from your git name and
+e-mail.
+
+There is no contributor license agreement.
 
 ## License
 

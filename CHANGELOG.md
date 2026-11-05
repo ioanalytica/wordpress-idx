@@ -11,8 +11,9 @@ plugin share one version; the entry of a version is its release notes.
   `CONTRIBUTING.md` says how to run the checks CI runs and how the one
   version in `app/package.json` reaches the plugin, `SECURITY.md` how to
   report a vulnerability privately, `CODE_OF_CONDUCT.md` what is expected of
-  everyone taking part. Issues and pull requests start from templates, and
-  this changelog is kept from here on.
+  everyone taking part. Contributions are signed off on every commit (DCO);
+  there is no contributor license agreement. Issues and pull requests start
+  from templates, and this changelog is kept from here on.
 
 ## 1.3.7
 

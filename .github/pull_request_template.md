@@ -11,3 +11,4 @@
 - [ ] A new environment variable is in `README.md` and `.env.example`
 - [ ] `CHANGELOG.md` has an entry under `## Unreleased`, if users notice the change
 - [ ] The version is unchanged; it is bumped at release (see [CONTRIBUTING.md](https://github.com/ioanalytica/wordpress-idx/blob/main/CONTRIBUTING.md#versions))
+- [ ] Every commit is signed off (`git commit -s`, see [CONTRIBUTING.md](https://github.com/ioanalytica/wordpress-idx/blob/main/CONTRIBUTING.md#sign-your-commits-dco))
