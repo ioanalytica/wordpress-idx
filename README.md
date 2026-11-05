@@ -263,6 +263,6 @@ Format: `timestamp ip method url status duration [results=N]`
 
 ## License
 
-Apache-2.0 — see [LICENSE](LICENSE)
+Apache-2.0 — see [LICENSE](LICENSE) and [NOTICE](NOTICE)
 
 The WordPress plugin (`plugin/`) is separately licensed under GPL-2.0-or-later, as required by WordPress plugin licensing terms — see [plugin/wordpress-idx-search/LICENSE](plugin/wordpress-idx-search/LICENSE).
