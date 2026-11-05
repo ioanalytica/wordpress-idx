@@ -65,15 +65,17 @@
       "schedule": ["* 0-5 1 * *"]
     },
     {
-      "description": "The MySQL that the test jobs start as a service is the series the tests are meant to cover: a new one is a deliberate move, approved on the dashboard.",
+      "description": "The MySQL that the test jobs start as a service is the series the tests are meant to cover: a new one is a deliberate move, approved on the dashboard. A group of its own, so that the approval does not hold the other workflow updates.",
       "matchManagers": ["github-actions"],
       "matchDepNames": ["mysql"],
+      "groupName": "MySQL of the test jobs",
       "dependencyDashboardApproval": true
     },
     {
-      "description": "A new digest under the same version means a release tag was moved: approve it on the dashboard after a look at the commit.",
+      "description": "A new digest under the same version means a release tag was moved: approve it on the dashboard after a look at the commit. A group of its own, for the same reason.",
       "matchManagers": ["github-actions"],
       "matchUpdateTypes": ["digest"],
+      "groupName": "GitHub Actions digests",
       "dependencyDashboardApproval": true
     },
     {
