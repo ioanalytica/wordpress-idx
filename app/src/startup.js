@@ -38,11 +38,15 @@ export async function prepareIndex({
     log('FORCE_UPDATE is set, rebuilding index...');
   } else {
     const existing = await readIndex();
-    if (existing) {
+    if (existing && existing.entries.length > 0) {
       log('FlexSearch index found, skipping extraction.');
       markAlive();
       return existing;
     }
+    // An index without entries is not taken from the file: it may have been
+    // written while WordPress was still installing (see below), by a start
+    // that ended before it could build a second time.
+    if (existing) log('FlexSearch index found, but it has no entries: building it again.');
   }
 
   if (startupDelayMs > 0) {

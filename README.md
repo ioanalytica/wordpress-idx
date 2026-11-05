@@ -214,7 +214,7 @@ Stored in `DATA_DIR`:
 | `wp-index-flex.json` | FlexSearch index chunks + entry metadata | Yes |
 | `wp-index-source.json` | Intermediate extraction output | Deleted after index build |
 
-On startup the app checks for `wp-index-flex.json`. If found, it loads the index directly (no DB connection needed). If missing or `FORCE_UPDATE=true`, it extracts from the database and builds the index. A build that fails, because the database does not answer yet or WordPress has not created its tables, is tried again every 5 seconds until it succeeds; `/readyz` answers 503 in the meantime. A build that finds no public post or page is repeated once after the same pause before its empty index is served, because WordPress creates its tables a moment before it fills them.
+On startup the app checks for `wp-index-flex.json`. If found, it loads the index directly (no DB connection needed). If missing or `FORCE_UPDATE=true`, it extracts from the database and builds the index. A build that fails, because the database does not answer yet or WordPress has not created its tables, is tried again every 5 seconds until it succeeds; `/readyz` answers 503 in the meantime. A build that finds no public post or page is repeated once after the same pause before its empty index is served, because WordPress creates its tables a moment before it fills them; for the same reason an index file without entries is not loaded at a start but built again.
 
 The index file carries a format number. A file written by an earlier version of the sidecar, in another format, is not loaded: the index is built anew from the database at the first start of the new version, once.
 

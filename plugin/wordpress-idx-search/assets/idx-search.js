@@ -192,7 +192,7 @@
             results = results.filter(function (entry) {
                 // The sidecar matches a phrase in the title as well, in its
                 // plain text.
-                if (entry.title && phraseRegex.test(stripHtml(entry.title)))
+                if (entry.title && phraseRegex.test(plainTitle(entry.title)))
                     return true;
                 if (entry.content && phraseRegex.test(stripHtml(entry.content)))
                     return true;
@@ -361,6 +361,14 @@
         if (!str) return '';
         var doc = new DOMParser().parseFromString(str, 'text/html');
         return doc.body.textContent || '';
+    }
+
+    // A title as the sidecar searches it: a tag counts as a space, entities
+    // are decoded, whitespace is collapsed.
+    function plainTitle(str) {
+        return stripHtml(String(str).replace(/<[^>]*>/g, ' '))
+            .replace(/\s+/g, ' ')
+            .trim();
     }
 
     function escapeHtml(str) {

@@ -111,10 +111,12 @@ describe('prepareIndex()', () => {
     ]);
   });
 
-  test('loads an existing empty index as it is', async () => {
-    const h = harness({ files: [EMPTY] });
-    assert.equal(await prepareIndex(h.deps), EMPTY);
-    assert.deepEqual(h.calls, ['read', 'alive']);
+  // The first, empty build is in the file already when the pause begins. A
+  // start that finds such a file does not take it for an index.
+  test('builds again when the index file has no entries', async () => {
+    const h = harness({ files: [EMPTY, INDEX] });
+    assert.equal(await prepareIndex(h.deps), INDEX);
+    assert.deepEqual(h.calls, ['read', 'connect', 'alive', 'build', 'read']);
   });
 
   test('tries again when the file it has just written cannot be loaded', async () => {

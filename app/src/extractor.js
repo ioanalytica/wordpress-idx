@@ -3,14 +3,22 @@ import config from './config.js';
 
 const { prefix } = config.db;
 
-function stripHtml(html) {
+// A numeric character reference (&#38; or &#x26;) as the character it names;
+// one that names no character stays as it is.
+function decodeNumeric(match, hex, dec) {
+  const code = hex ? parseInt(hex, 16) : parseInt(dec, 10);
+  if (code === 0 || code > 0x10ffff || (code >= 0xd800 && code <= 0xdfff)) return match;
+  return String.fromCodePoint(code);
+}
+
+export function stripHtml(html) {
   let text = html
     .replace(/<[^>]*>/g, ' ')
+    .replace(/&#(?:x([0-9a-f]{1,6})|([0-9]{1,7}));/gi, decodeNumeric)
     .replace(/&amp;/g, '&')
     .replace(/&lt;/g, '<')
     .replace(/&gt;/g, '>')
     .replace(/&quot;/g, '"')
-    .replace(/&#0?39;/g, "'")
     .replace(/&nbsp;/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
