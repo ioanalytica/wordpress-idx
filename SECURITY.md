@@ -16,8 +16,10 @@ unless you prefer otherwise.
 
 Fixes go into the next version; there are no backports to older ones. The
 sidecar and the plugin share one version, so upgrade both to the latest one
-(the highest [tag](https://github.com/ioanalytica/wordpress-idx/tags)) to
-receive them.
+(the newest version in [`CHANGELOG.md`](CHANGELOG.md)) to receive them. Its
+image is published by the release of
+[wordpress-nginx](https://github.com/ioanalytica/wordpress-nginx) that builds
+it, see [Container image](README.md#container-image).
 
 ## Scope
 

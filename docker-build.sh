@@ -1,14 +1,31 @@
 #!/bin/bash
 
-# Determine push mode: ENV default (compatible with sub-script calls); a flag overrides ENV.
-PUSH="${PUSH:-0}"
+# Builds the sidecar image for the host architecture and loads it into the
+# local Docker daemon, to try a change. It publishes nothing.
+#
+# Released images are built, signed and published by the release of
+# wordpress-nginx (https://github.com/ioanalytica/wordpress-nginx), from the
+# commit of this repository it pins as a submodule. An image pushed from here
+# would be unsigned and could take a tag that a release sets.
+refuse_push() {
+  echo "ERROR: this script does not push. Released images of wordpress-idx are built," >&2
+  echo "signed and published by the release of wordpress-nginx:" >&2
+  echo "https://github.com/ioanalytica/wordpress-nginx#verify-a-release" >&2
+  exit 1
+}
+
+# PUSH=1 and --push used to build for two platforms and push the image.
+case "${PUSH:-0}" in
+  0|"") ;;
+  *) refuse_push ;;
+esac
 # Skip the confirmation prompt when CI=1 or ASSUME_YES=1; -y/--yes overrides ENV.
 ASSUME_YES="${ASSUME_YES:-0}"
 if [ "${CI:-0}" = "1" ] || [ "${CI:-}" = "true" ]; then ASSUME_YES=1; fi
 for arg in "$@"; do
   case "$arg" in
-    --push)     PUSH=1 ;;
-    --no-push)  PUSH=0 ;;
+    --push)     refuse_push ;;
+    --no-push)  ;; # the only mode there is; accepted for callers that pass it
     -y|--yes)   ASSUME_YES=1 ;;
     *) echo "WARN: ignoring unknown argument '$arg'" >&2 ;;
   esac
@@ -31,20 +48,14 @@ TAG="${RAW//+/-}"
 
 echo "Using tag: $TAG"
 
-PROD_IMAGE="ghcr.io/ioanalytica/wordpress-idx:${TAG}"
-
-# Mode label: push builds multi-arch, local builds host-arch only (--load cannot
-# load a multi-arch manifest list into the local Docker daemon).
-if [ "$PUSH" = "1" ]; then
-  MODE_LABEL="push (multi-arch amd64+arm64)"
-else
-  MODE_LABEL="local (host arch, --load)"
-fi
+# A name without a registry: the image stays local, and a plain `docker push`
+# of it cannot reach the tags the release of wordpress-nginx sets.
+IMAGE="wordpress-idx:${TAG}"
 
 if [ "$ASSUME_YES" = "1" ]; then
-  echo "Build ${MODE_LABEL} for tag ${TAG} (ASSUME_YES — no prompt)."
+  echo "Build for the host architecture, tag ${TAG} (ASSUME_YES — no prompt)."
 else
-  read -r -p "Build ${MODE_LABEL} for tag ${TAG} (y/N)? " REPLY
+  read -r -p "Build for the host architecture, tag ${TAG} (y/N)? " REPLY
   if [[ ! "$REPLY" =~ ^[yY]$ ]]; then
     echo "Aborted."
     exit 0
@@ -54,14 +65,9 @@ fi
 echo "Linting Dockerfile …"
 hadolint Dockerfile
 
-echo "Building ${PROD_IMAGE} …"
-if [ "$PUSH" = "1" ]; then
-  # Multi-arch only on push — the registry holds the manifest list.
-  docker buildx build --no-cache --pull --platform linux/amd64,linux/arm64 -t "${PROD_IMAGE}" . --push
-else
-  # Local: without --platform buildx builds for the host arch and --load loads the
-  # single-arch image into the local Docker daemon (multi-arch + --load is unsupported).
-  docker buildx build --no-cache --pull -t "${PROD_IMAGE}" . --load
-fi
+echo "Building ${IMAGE} …"
+# Without --platform buildx builds for the host architecture, and --load puts
+# the image into the local Docker daemon.
+docker buildx build --no-cache --pull -t "${IMAGE}" . --load
 
 # end
