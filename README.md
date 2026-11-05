@@ -261,6 +261,10 @@ Every request answered with JSON is logged, except `/healthz` and `/readyz`:
 
 Format: `timestamp ip method url status duration [results=N]`
 
+## Contributing
+
+Bug reports, questions and pull requests are welcome: [CONTRIBUTING.md](CONTRIBUTING.md) says where they go and how to run the checks. A vulnerability is reported privately, as [SECURITY.md](SECURITY.md) describes. [CHANGELOG.md](CHANGELOG.md) lists what changed in each version.
+
 ## License
 
 Apache-2.0 — see [LICENSE](LICENSE) and [NOTICE](NOTICE)
