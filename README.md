@@ -239,14 +239,48 @@ Key integration points:
 - **Probes**: Liveness on `/healthz`, readiness on `/readyz`
 - **Startup delay**: Waits for WordPress to initialise before extracting from the shared database
 
-## Docker
+## Container image
+
+Released images are published as `ghcr.io/ioanalytica/wordpress-idx` by the release of [wordpress-nginx](https://github.com/ioanalytica/wordpress-nginx), the Helm chart that runs the sidecar. That repository pins a commit of this one as a git submodule; its release builds the image from that commit for `linux/amd64` and `linux/arm64`, signs it and publishes it. This repository publishes no image: no workflow here pushes one, and a git tag here starts no build.
+
+- An image carries the chart version of the release that built it as its tag (the first is `7.1.409`), and `latest` names the image of the newest release.
+- Its labels `org.opencontainers.image.version` and `org.opencontainers.image.revision` name the wordpress-idx version and commit it was built from.
+- The first wordpress-nginx release that builds a new wordpress-idx version also gives its image that version as a tag (`1.x.y`), which then stays on that build.
+- The tags `1.x.y` up to `1.3.7` are this repository's own earlier builds. They are not signed, and no release overwrites them.
+
+A new version of the sidecar reaches users when wordpress-nginx moves its submodule pin to it and makes a release. The pin moves by hand, with a line in the chart's changelog.
+
+### Verify an image
+
+The images are signed with [Sigstore](https://www.sigstore.dev/) cosign, keyless. The identity in the certificate is the release workflow of wordpress-nginx, running for the release's tag, not a workflow of this repository. Resolve the tag once and use the digest from then on. With [cosign](https://docs.sigstore.dev/cosign/system_config/installation/) 3:
+
+```sh
+version=<chart version>   # the image's tag, for example 7.1.409
+repo=ghcr.io/ioanalytica/wordpress-idx
+digest=$(docker buildx imagetools inspect "$repo:$version" --format '{{json .Manifest}}' | jq -r .digest)
+cosign verify "$repo@$digest" \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+  --certificate-identity "https://github.com/ioanalytica/wordpress-nginx/.github/workflows/release.yml@refs/tags/$version"
+```
+
+The version in the identity is always the chart version of the release. For `latest` or a `1.x.y` tag, where it is not the tag, `--certificate-identity-regexp '^https://github\.com/ioanalytica/wordpress-nginx/\.github/workflows/release\.yml@refs/tags/'` in place of `--certificate-identity` accepts any release, and the output names the one that signed.
+
+The wordpress-idx version and commit inside an image:
+
+```sh
+docker buildx imagetools inspect "$repo@$digest" --format '{{json (index .Image "linux/amd64").Config.Labels}}'
+```
+
+[Verify a release](https://github.com/ioanalytica/wordpress-nginx#verify-a-release) in wordpress-nginx describes the release's signatures, SBOMs and provenance in full.
+
+### Build locally
 
 ```bash
 # Build for the host architecture and load the image into the local Docker daemon
 ./docker-build.sh
 ```
 
-The script reads the image tag from `version` in `app/package.json`, asks before it builds (`-y` skips the question) and runs [hadolint](https://github.com/hadolint/hadolint) on the `Dockerfile` first; its findings are printed and do not stop the build. With `--push` it builds for `linux/amd64` and `linux/arm64` and pushes the image instead of loading it, which needs write access to the registry.
+The script builds `wordpress-idx:<version>`, with `version` from `app/package.json`, to try a change. It asks before it builds (`-y` skips the question) and runs [hadolint](https://github.com/hadolint/hadolint) on the `Dockerfile` first; its findings are printed and do not stop the build. It does not push: `--push` and `PUSH=1` end with an error that points to the release above.
 
 Image: `node:26-alpine`, non-root (`node` user).
 

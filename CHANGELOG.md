@@ -7,6 +7,28 @@ plugin share one version; the entry of a version is its release notes.
 
 ### Project
 
+* **Released images come from wordpress-nginx.** The image
+  `ghcr.io/ioanalytica/wordpress-idx` is built, signed with cosign and
+  published by the release of
+  [wordpress-nginx](https://github.com/ioanalytica/wordpress-nginx), from the
+  commit of this repository it pins as a submodule, and carries the chart
+  version as its tag. This repository publishes no image any more: its build
+  and push workflow and its daily CVE scan are gone, a git tag here starts
+  nothing, and `docker-build.sh` builds locally only. The README says how to
+  verify an image; the tags `1.x.y` up to `1.3.7` are this repository's
+  earlier, unsigned builds and stay as they are.
+* **Dependency updates by Renovate** instead of Dependabot, with the same
+  groups and cadence. The workflows pin their actions by commit SHA, have a
+  time limit per job, read-only permissions and pinned runner images, run
+  once per pull request, and one of them builds the `Dockerfile` without
+  pushing.
+* **Legacy files removed and the README matched to the code.** `LICENSE` is
+  the verbatim Apache-2.0 text, with the copyright line and the note on the
+  plugin's licence in `NOTICE`.
+* **`API_PROMPT.md` is checked against the code.** The API reference for
+  agents was corrected, and a test fails when the routes, the query
+  parameters or the headers of the reindex call it names differ from the
+  sidecar.
 * **Contribution guide, security policy and code of conduct.**
   `CONTRIBUTING.md` says how to run the checks CI runs and how the one
   version in `app/package.json` reaches the plugin, `SECURITY.md` how to
