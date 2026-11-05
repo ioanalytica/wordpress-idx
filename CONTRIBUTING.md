@@ -49,14 +49,14 @@ docker run --rm -d --name idx-test-mysql -p 127.0.0.1:3306:3306 \
   -e MYSQL_ROOT_PASSWORD=root -e MYSQL_DATABASE=wordpress_idx_test mysql:8.0
 cd app
 IDX_TEST_DB=1 npm test          # once MySQL accepts connections
-docker stop idx-test-mysql
 ```
 
 The connection comes from `IDX_TEST_DB_HOST`, `IDX_TEST_DB_PORT`,
 `IDX_TEST_DB_USER`, `IDX_TEST_DB_PASS` and `IDX_TEST_DB_NAME`; the defaults
 match the container above. The app's own `DB_*` variables are not read, and
 the suite creates and drops its tables under a prefix of its own. Give it a
-throwaway database all the same.
+throwaway database all the same. `docker stop idx-test-mysql` removes the
+container; the plugin's PHPUnit run below can use it first.
 
 ### Plugin: PHPCS and PHPUnit
 
@@ -78,9 +78,10 @@ composer test
 
 The arguments are the database name, user, password, host and the WordPress
 version. The script downloads WordPress and its test library and creates the
-database, for which it needs `mysqladmin`. The MySQL container above serves
-here too, with MySQL's own client; MariaDB's `mariadb-admin` cannot log in
-to MySQL 8.0 and wants a MariaDB server.
+database, for which it needs `mysqladmin`. The MySQL container of the
+sidecar tests serves here too while it runs, with MySQL's own client;
+MariaDB's `mariadb-admin` cannot log in to MySQL 8.0 and wants a MariaDB
+server.
 
 CI runs PHPUnit on PHP 7.4 and 8.2 and PHPCS on 8.2. The plugin supports
 PHP 7.4, so its code stays within what 7.4 understands.
