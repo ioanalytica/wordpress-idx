@@ -1,0 +1,87 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "description": "Dependency update pull requests for wordpress-idx: the sidecar's npm packages and the Dockerfile's base images every week, the plugin's development tools (npm and Composer) and the GitHub Actions workflows once a month. CONTRIBUTING.md says what the bot updates.",
+  "extends": ["config:recommended", "helpers:pinGitHubActionDigestsToSemver"],
+  "timezone": "Europe/Berlin",
+  "schedule": ["* 0-5 * * 1"],
+  "prConcurrentLimit": 10,
+  "rebaseWhen": "conflicted",
+  "minimumReleaseAge": "3 days",
+  "semanticCommits": "enabled",
+  "commitBody": "Signed-off-by: {{{gitAuthor}}}",
+  "configMigration": true,
+  "customManagers": [
+    {
+      "customType": "regex",
+      "description": "Tool versions of the workflows, an env *_VERSION under a '# renovate: datasource=... depName=...' line.",
+      "managerFilePatterns": ["/^\\.github/workflows/[^/]+\\.ya?ml$/"],
+      "matchStrings": [
+        "# renovate: datasource=(?<datasource>\\S+) depName=(?<depName>\\S+)\\n *\\w+_VERSION: (?<currentValue>\\S+)"
+      ]
+    }
+  ],
+  "packageRules": [
+    {
+      "description": "The sidecar's npm packages (app/) run in the image: minor and patch updates in one pull request a week, a new major in a pull request of its own.",
+      "matchManagers": ["npm"],
+      "matchFileNames": ["app/**"],
+      "matchUpdateTypes": ["minor", "patch"],
+      "groupName": "sidecar dependencies"
+    },
+    {
+      "description": "What the image is built from. The sidecar's version and changelog entry follow at the next release.",
+      "matchFileNames": ["app/**", "Dockerfile"],
+      "prBodyNotes": ["This changes the sidecar image: add a line under `## Unreleased` in CHANGELOG.md before merging."]
+    },
+    {
+      "description": "The plugin's linters (ESLint, Stylelint, Prettier) do not reach the packaged plugin: every update, majors included, in one pull request a month.",
+      "matchManagers": ["npm"],
+      "matchFileNames": ["plugin/wordpress-idx-search/**"],
+      "groupName": "plugin assets tooling",
+      "separateMajorMinor": false,
+      "semanticCommitType": "chore",
+      "schedule": ["* 0-5 1 * *"]
+    },
+    {
+      "description": "The plugin's PHP development tools (PHPUnit, PHPCS with the WordPress standards, polyfills): every update, majors included, in one pull request a month.",
+      "matchManagers": ["composer"],
+      "groupName": "plugin PHP tooling",
+      "separateMajorMinor": false,
+      "semanticCommitType": "chore",
+      "schedule": ["* 0-5 1 * *"]
+    },
+    {
+      "description": "PHPUnit 9 is the last series that runs on PHP 7.4, which the plugin supports and its tests run on.",
+      "matchManagers": ["composer"],
+      "matchDepNames": ["phpunit/phpunit"],
+      "allowedVersions": "<10"
+    },
+    {
+      "description": "The workflows: actions, runner images, the Node.js they set up and their service containers, every update in one pull request a month.",
+      "matchManagers": ["github-actions"],
+      "groupName": "GitHub Actions",
+      "separateMajorMinor": false,
+      "semanticCommitType": "ci",
+      "schedule": ["* 0-5 1 * *"]
+    },
+    {
+      "description": "The MySQL that the test jobs start as a service is the series the tests are meant to cover: a new one is a deliberate move, approved on the dashboard.",
+      "matchManagers": ["github-actions"],
+      "matchDepNames": ["mysql"],
+      "dependencyDashboardApproval": true
+    },
+    {
+      "description": "A new digest under the same version means a release tag was moved: approve it on the dashboard after a look at the commit.",
+      "matchManagers": ["github-actions"],
+      "matchUpdateTypes": ["digest"],
+      "dependencyDashboardApproval": true
+    },
+    {
+      "description": "The Renovate that renovate-config.yml runs, once a month: Renovate releases most days.",
+      "matchManagers": ["custom.regex"],
+      "matchDepNames": ["renovate"],
+      "semanticCommitType": "ci",
+      "schedule": ["* 0-5 1 * *"]
+    }
+  ]
+}
