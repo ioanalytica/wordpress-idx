@@ -1,7 +1,12 @@
 import express from 'express';
-import { createIndex } from '../src/index-format.js';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { INDEX_FILE } from '../src/index-format.js';
+import { IndexWriter } from '../src/index-writer.js';
+import { loadIndexFile } from '../src/search-index.js';
 
-// Sample entries shaped like the real index payload (see indexer.js / index.js).
+// Sample entries shaped like those the extractor yields (see extractor.js).
 export const SAMPLE_ENTRIES = [
   {
     id: 1,
@@ -47,17 +52,20 @@ export const SAMPLE_ENTRIES = [
   },
 ];
 
-// Builds the production index (index-format.js) + an entriesMap as the
-// service holds them after loading an index file.
-export function buildTestIndex(entries = SAMPLE_ENTRIES) {
-  const index = createIndex();
-
-  const entriesMap = new Map();
-  for (const entry of entries) {
-    index.add(entry);
-    entriesMap.set(entry.id, entry);
+// Writes `entries` into an index file, as a build does, and returns the index
+// the service loads from it. `options` are those of the IndexWriter.
+export async function buildTestIndex(entries = SAMPLE_ENTRIES, options) {
+  const dir = mkdtempSync(join(tmpdir(), 'idx-test-'));
+  try {
+    const path = join(dir, INDEX_FILE);
+    const writer = new IndexWriter(path, options);
+    writer.add(entries);
+    writer.finish();
+    // A loaded index holds everything in memory; the file can go.
+    return await loadIndexFile(path);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
   }
-  return { index, entriesMap };
 }
 
 // Mounts a router on a throwaway server and returns { baseUrl, close }.

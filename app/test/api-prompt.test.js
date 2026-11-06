@@ -123,10 +123,17 @@ function recorder(value) {
 }
 
 const fakeResponse = () => ({
+  locals: {},
   status() {
     return this;
   },
+  set() {
+    return this;
+  },
   json() {
+    return this;
+  },
+  send() {
     return this;
   },
 });
@@ -152,18 +159,17 @@ async function queryParamsRead(router) {
   return read;
 }
 
-function searchRouter() {
-  const { index, entriesMap } = buildTestIndex();
-  return createSearchRouter(index, entriesMap);
+async function searchRouter() {
+  return createSearchRouter(await buildTestIndex());
 }
 
 describe('API_PROMPT.md endpoints', () => {
   const inCode = scanAllRoutes();
   const inDoc = documentedRoutes();
 
-  test('the source scan agrees with the routes the routers register', () => {
+  test('the source scan agrees with the routes the routers register', async () => {
     const routers = {
-      'searcher.js': searchRouter(),
+      'searcher.js': await searchRouter(),
       'reindex.js': createReindexRouter(() => 0),
       'plugin.js': createPluginRouter(),
     };
@@ -202,7 +208,7 @@ describe('API_PROMPT.md endpoints', () => {
 
 describe('API_PROMPT.md query parameters', () => {
   test('every query parameter the handlers read is in the table', async () => {
-    const read = await queryParamsRead(searchRouter());
+    const read = await queryParamsRead(await searchRouter());
     const documented = documentedParams();
     assert.ok(read.size > 0, 'the handlers read no query parameter: the probe no longer works');
     for (const name of read) {
@@ -214,7 +220,7 @@ describe('API_PROMPT.md query parameters', () => {
   });
 
   test('every parameter in the table is read by a handler', async () => {
-    const read = await queryParamsRead(searchRouter());
+    const read = await queryParamsRead(await searchRouter());
     const documented = documentedParams();
     assert.ok(documented.size > 0, 'found no parameter table in API_PROMPT.md');
     for (const name of documented) {

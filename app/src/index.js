@@ -2,8 +2,7 @@ import express, { Router } from 'express';
 import cors from 'cors';
 import config from './config.js';
 import { testConnection } from './db.js';
-import { buildSourceFile, readIndexFile } from './indexer.js';
-import { createIndex } from './index-format.js';
+import { buildIndexInChild, readIndexFile } from './indexer.js';
 import { prepareIndex } from './startup.js';
 import { createSearchRouter } from './searcher.js';
 import { createReindexRouter } from './reindex.js';
@@ -19,11 +18,16 @@ app.use((req, res, next) => {
 
   const start = Date.now();
   const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.ip;
+  // Called with the number of results when the response has one. A handler
+  // that sends JSON as bytes instead of through res.json() calls it itself.
+  res.locals.logResponse = (total) => {
+    const ms = Date.now() - start;
+    const results = total != null ? ` results=${total}` : '';
+    console.log(`${new Date().toISOString()} ${ip} ${req.method} ${req.originalUrl} ${res.statusCode} ${ms}ms${results}`);
+  };
   const origJson = res.json.bind(res);
   res.json = (body) => {
-    const ms = Date.now() - start;
-    const results = body?.total != null ? ` results=${body.total}` : '';
-    console.log(`${new Date().toISOString()} ${ip} ${req.method} ${req.originalUrl} ${res.statusCode} ${ms}ms${results}`);
+    res.locals.logResponse(body?.total);
     return origJson(body);
   };
   next();
@@ -63,31 +67,25 @@ baseRouter.use((req, res, next) => {
   next();
 });
 
-// Puts the data of an index file into service: replaces the search router.
-async function activateIndex(data) {
-  console.log('Loading FlexSearch index...');
-
-  const entriesMap = new Map();
-  for (const entry of data.entries) {
-    entriesMap.set(entry.id, entry);
-  }
-
-  const index = createIndex();
-  for (const [key, value] of Object.entries(data.flexIndex)) {
-    await index.import(key, value);
-  }
-
-  searchRouter = createSearchRouter(index, entriesMap);
+// Puts a loaded index into service: replaces the search router, and lets go
+// of the index it served before. A request is answered within one turn of
+// the event loop, so none is still reading the previous index here.
+let currentIndex = null;
+function activateIndex(index) {
+  const previous = currentIndex;
+  currentIndex = index;
+  searchRouter = createSearchRouter(index);
   indexReady = true;
-  console.log(`Search API ready. ${entriesMap.size} entries loaded.`);
-  return entriesMap.size;
+  if (previous) previous.release();
+  console.log(`Search API ready. ${index.size} entries loaded (${(index.bytes / 1048576).toFixed(1)} MiB).`);
+  return index.size;
 }
 
 // After a reindex: the file that was just written.
 async function loadIndex() {
-  const data = await readIndexFile();
-  if (!data) throw new Error('The index file that was just written cannot be loaded.');
-  return activateIndex(data);
+  const index = await readIndexFile();
+  if (!index) throw new Error('The index file that was just written cannot be loaded.');
+  return activateIndex(index);
 }
 
 // Mount reindex endpoint
@@ -105,7 +103,7 @@ const server = app.listen(config.port, async () => {
   if (config.basePath) console.log(`Base path: ${config.basePath}`);
 
   try {
-    const data = await prepareIndex({
+    const index = await prepareIndex({
       forceUpdate: process.env.FORCE_UPDATE === 'true',
       startupDelayMs: config.startupDelay * 1000,
       readIndex: () => readIndexFile(),
@@ -114,14 +112,15 @@ const server = app.listen(config.port, async () => {
         await testConnection();
         console.log('Database connection successful.');
       },
-      buildIndex: buildSourceFile,
+      // In a process of its own: this one keeps answering the health checks.
+      buildIndex: () => buildIndexInChild(),
       // An index to load, or a database connection to build one from: signal
       // liveness, so that k8s does not kill the service during the build.
       markAlive: () => {
         alive = true;
       },
     });
-    await activateIndex(data);
+    activateIndex(index);
   } catch (err) {
     console.error(`Startup error: ${err.message}`);
   }

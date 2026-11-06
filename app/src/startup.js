@@ -14,10 +14,10 @@ export const RETRY_DELAY_MS = 5000;
 const pause = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 /**
- * Resolves with the index data once there is an index to serve.
+ * Resolves with the index once there is one to serve.
  *
- *   readIndex()       the parsed index file ({ entries, ... }), or null
- *                     when there is none of the current format
+ *   readIndex()       the index of the index file, loaded ({ size, ... }),
+ *                     or null when there is no file of the current format
  *   testConnection()  rejects while the database cannot be reached
  *   buildIndex()      extracts from the database and writes the index file
  *   markAlive()       called as soon as the service has something to live
@@ -38,15 +38,15 @@ export async function prepareIndex({
     log('FORCE_UPDATE is set, rebuilding index...');
   } else {
     const existing = await readIndex();
-    if (existing && existing.entries.length > 0) {
-      log('FlexSearch index found, skipping extraction.');
+    if (existing && existing.size > 0) {
+      log('Search index found, skipping extraction.');
       markAlive();
       return existing;
     }
     // An index without entries is not taken from the file: it may have been
     // written while WordPress was still installing (see below), by a start
     // that ended before it could build a second time.
-    if (existing) log('FlexSearch index found, but it has no entries: building it again.');
+    if (existing) log('Search index found, but it has no entries: building it again.');
   }
 
   if (startupDelayMs > 0) {
@@ -69,7 +69,7 @@ export async function prepareIndex({
       await buildIndex();
       const built = await readIndex();
       if (!built) throw new Error('the index file that was just written cannot be loaded');
-      if (built.entries.length === 0 && !emptyOnce) {
+      if (built.size === 0 && !emptyOnce) {
         emptyOnce = true;
         log(`No public posts or pages found. WordPress may still be installing: building once more in ${retryDelayMs / 1000}s.`);
         await sleep(retryDelayMs);

@@ -41,7 +41,8 @@ const SEED = [
        (16,99,'2020-04-01 10:00:00','Its author was deleted','Former Author','publish','','former-author','post'),
        (17,1,'2024-03-01 10:00:00','Behind a password','Protected','publish','secret','protected','post'),
        (18,1,'2024-03-02 10:00:00','Behind a password of spaces','Protected too','publish','   ','protected-too','post'),
-       (19,2,'2019-01-01 10:00:00','Cats and dogs','Tom &amp; <em>Jerry</em>','publish','','tom-and-jerry','post')`,
+       (19,2,'2019-01-01 10:00:00','Cats and dogs','Tom &amp; <em>Jerry</em>','publish','','tom-and-jerry','post'),
+       (20,2,'2023-01-20 10:00:00','Published in the same second as post 12','Same Second','publish','','same-second','post')`,
   ],
   [`INSERT INTO ${PREFIX}terms (term_id, name) VALUES (1,'News'),(2,'intro'),(3,'Info')`],
   [
@@ -65,9 +66,16 @@ const SEED = [
 ];
 
 describe('mysql2 database layer', { skip: ENABLED ? false : 'set IDX_TEST_DB=1 and provide a MySQL' }, () => {
-  let extractAll;
+  let extractBatches;
   let testConnection;
   let entries;
+
+  // The entries of all batches, as one list.
+  async function extractAll(options) {
+    const all = [];
+    for await (const batch of extractBatches(options)) all.push(...batch);
+    return all;
+  }
 
   before(async () => {
     const conn = await connect();
@@ -79,7 +87,7 @@ describe('mysql2 database layer', { skip: ENABLED ? false : 'set IDX_TEST_DB=1 a
     }
 
     ({ testConnection } = await import('../src/db.js'));
-    ({ extractAll } = await import('../src/extractor.js'));
+    ({ extractBatches } = await import('../src/extractor.js'));
     entries = await extractAll();
   });
 
@@ -97,12 +105,35 @@ describe('mysql2 database layer', { skip: ENABLED ? false : 'set IDX_TEST_DB=1 a
     await testConnection();
   });
 
-  test('extractAll() returns only published posts and pages, newest first', () => {
+  test('extractBatches() yields only published posts and pages, newest first', () => {
     assert.deepEqual(
       entries.map((e) => e.id),
-      [12, 11, 10, 15, 16, 19],
-      'drafts and non post/page types must be excluded, ordered by post_date DESC',
+      [20, 12, 11, 10, 15, 16, 19],
+      'drafts and non post/page types must be excluded, ordered by post_date DESC, then by ID DESC',
     );
+  });
+
+  // The build reads the site in batches, so that it holds a part of it at a
+  // time. A batch ends at a number of posts or of bytes.
+  test('yields the same entries in the same order whatever the size of a batch', async () => {
+    const expected = JSON.stringify(entries);
+    assert.equal(JSON.stringify(await extractAll({ batchPosts: 1 })), expected);
+    assert.equal(JSON.stringify(await extractAll({ batchPosts: 3 })), expected);
+    assert.equal(JSON.stringify(await extractAll({ batchBytes: 1 })), expected);
+  });
+
+  test('a batch holds at most the given number of posts', async () => {
+    const sizes = [];
+    for await (const batch of extractBatches({ batchPosts: 3 })) sizes.push(batch.length);
+    assert.deepEqual(sizes, [3, 3, 1]);
+  });
+
+  test('a batch ends when its posts and their comments reach the given number of bytes', async () => {
+    // Posts 20, 12, 11 and 10 have 39 + 15 + 21 + 41 = 116 bytes of content,
+    // and post 10 has 45 bytes of comments that are shown: 161 with them.
+    const batches = [];
+    for await (const batch of extractBatches({ batchBytes: 120 })) batches.push(batch.map((e) => e.id));
+    assert.deepEqual(batches, [[20, 12, 11, 10], [15, 16, 19]]);
   });
 
   // WordPress stores a post without an author with post_author 0 (wp-cli

@@ -1,14 +1,32 @@
 import { Router } from 'express';
-import { TEXT_FIELDS, COMMENT_FIELD } from './index-format.js';
+import { TEXT_FIELDS, COMMENT_FIELD, commentsTextOf } from './index-format.js';
 
-export function createSearchRouter(index, entriesMap) {
+// Sends JSON that is already in bytes, with the headers res.json() sets. A
+// response is put together from the entries' records and is never one string,
+// which has an upper bound that the entries of a large site exceed.
+function sendJson(res, parts, total) {
+  // The request log (index.js) names the number of results.
+  if (typeof res.locals.logResponse === 'function') res.locals.logResponse(total);
+  res.set('Content-Type', 'application/json; charset=utf-8');
+  res.send(Buffer.concat(parts));
+}
+
+const COMMA = Buffer.from(',');
+const CLOSE = Buffer.from(']}');
+
+/**
+ * The search API over a loaded index (search-index.js). A request works on
+ * the entries' meta objects; the record of an entry is read when its text is
+ * needed: for the response, for a snippet, for a phrase.
+ */
+export function createSearchRouter(index) {
   const router = Router();
 
   router.get('/api/search', (req, res) => {
     try {
       const { limit, context, q } = req.query;
 
-      let candidates = filterEntries(req.query, index, entriesMap);
+      let candidates = filterEntries(req.query, index);
 
       const total = candidates.length;
       if (limit) {
@@ -17,20 +35,31 @@ export function createSearchRouter(index, entriesMap) {
 
       const useContext = context === 'true' && q;
       const includeComments = req.query.include_comments === 'true';
-      const results = candidates.map((e) => ({
-        id: e.id,
-        type: e.type,
-        author: e.author,
-        title: e.title,
-        date: e.date,
-        slug: e.slug,
-        categories: e.categories,
-        tags: e.tags,
-        content: useContext ? extractSnippet(e.content, q, includeComments ? e.commentsText : null) : e.content,
-        comments: e.comments || [],
-      }));
+      const parts = [Buffer.from(`{"total":${total},"results":[`)];
+      candidates.forEach((meta, i) => {
+        if (i > 0) parts.push(COMMA);
+        const record = index.record(meta);
+        if (!useContext) {
+          parts.push(record);
+          return;
+        }
+        // The comments are read only when the content does not hold the query.
+        const comments = includeComments ? () => commentsTextOf(index.comments(meta)) : null;
+        const snippet = extractSnippet(index.content(meta), q, comments);
+        if (meta.contentBytes) {
+          // The record with the snippet in the place of the content.
+          parts.push(
+            record.subarray(0, meta.contentAt),
+            Buffer.from(JSON.stringify(snippet)),
+            record.subarray(meta.contentAt + meta.contentBytes),
+          );
+        } else {
+          parts.push(Buffer.from(JSON.stringify({ ...index.entry(meta), content: snippet })));
+        }
+      });
+      parts.push(CLOSE);
 
-      res.json({ total, results });
+      sendJson(res, parts, total);
     } catch (err) {
       console.error('Search error:', err.message);
       res.status(500).json({ error: 'Search failed', message: err.message });
@@ -43,12 +72,11 @@ export function createSearchRouter(index, entriesMap) {
       if (isNaN(id)) {
         return res.status(400).json({ error: 'Invalid ID', message: 'ID must be an integer' });
       }
-      const entry = entriesMap.get(id);
-      if (!entry) {
+      const meta = index.byId.get(id);
+      if (!meta) {
         return res.status(404).json({ error: 'Not found', message: `No entry with ID ${id}` });
       }
-      const { commentsText, titleText, ...rest } = entry;
-      res.json(rest);
+      sendJson(res, [index.record(meta)]);
     } catch (err) {
       console.error('Entry lookup error:', err.message);
       res.status(500).json({ error: 'Lookup failed', message: err.message });
@@ -57,7 +85,7 @@ export function createSearchRouter(index, entriesMap) {
 
   router.get('/api/stats', (req, res) => {
     try {
-      const candidates = filterEntries(req.query, index, entriesMap);
+      const candidates = filterEntries(req.query, index);
 
       const posts = candidates.filter((e) => e.type === 'post').length;
       const pages = candidates.filter((e) => e.type === 'page').length;
@@ -71,10 +99,10 @@ export function createSearchRouter(index, entriesMap) {
       const tagCounts = {};
 
       for (const e of candidates) {
-        const chars = e.content.length;
-        const words = e.content.split(/\s+/).filter(Boolean).length;
-        totalChars += chars;
-        totalWords += words;
+        // Characters and words of the content, counted when the index was
+        // built.
+        totalChars += e.chars;
+        totalWords += e.words;
 
         const d = new Date(e.date);
         if (!earliest || d < earliest) earliest = d;
@@ -124,7 +152,8 @@ export function createSearchRouter(index, entriesMap) {
   return router;
 }
 
-function filterEntries(query, index, entriesMap) {
+// The meta objects of the entries a request selects.
+function filterEntries(query, index) {
   const {
     q,
     type,
@@ -148,37 +177,32 @@ function filterEntries(query, index, entriesMap) {
     const isPhrase = /^".*"$/.test(q);
     const searchTerm = isPhrase ? q.slice(1, -1) : q;
 
-    // Without a limit FlexSearch returns 100 matches per field. Every entry
-    // can match, so the number of entries is the limit that cuts nothing off.
     const fields = include_comments === 'true' ? [...TEXT_FIELDS, COMMENT_FIELD] : TEXT_FIELDS;
-    const searchResults = index.search(searchTerm, {
-      index: fields,
-      enrich: true,
-      limit: Math.max(entriesMap.size, 1),
-    });
+    const searchResults = index.search(searchTerm, fields);
     const idSet = new Set();
     for (const fieldResult of searchResults) {
-      for (const item of fieldResult.result) {
-        idSet.add(item.id);
+      for (const id of fieldResult.result) {
+        idSet.add(id);
       }
     }
-    candidates = [...idSet].map((id) => entriesMap.get(id)).filter(Boolean);
+    candidates = [...idSet].map((id) => index.byId.get(id)).filter(Boolean);
 
     // Post-filter for quoted phrase: word-boundary regex match
     if (isPhrase) {
       const escaped = searchTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       const phraseRegex = new RegExp('\\b' + escaped.replace(/\s+/g, '\\s+') + '\\b', 'i');
-      candidates = candidates.filter((e) => {
-        if (e.titleText && phraseRegex.test(e.titleText)) return true;
-        if (e.content && phraseRegex.test(e.content)) return true;
-        if (include_comments === 'true' && e.comments) {
-          return e.comments.some((c) => c.content && phraseRegex.test(c.content));
+      candidates = candidates.filter((meta) => {
+        if (meta.titleText && phraseRegex.test(meta.titleText)) return true;
+        const content = index.content(meta);
+        if (content && phraseRegex.test(content)) return true;
+        if (include_comments === 'true') {
+          return index.comments(meta).some((c) => c.content && phraseRegex.test(c.content));
         }
         return false;
       });
     }
   } else {
-    candidates = [...entriesMap.values()];
+    candidates = [...index.metas];
   }
 
   if (type) {
@@ -228,12 +252,17 @@ function sortedEntries(counts) {
     .sort((a, b) => b.count - a.count);
 }
 
-function extractSnippet(content, query, commentsText) {
+// `comments` returns the text of the entry's comments; it is called when the
+// content does not hold the query.
+function extractSnippet(content, query, comments) {
   let idx = content.toLowerCase().indexOf(query.toLowerCase());
-  if (idx === -1 && commentsText) {
-    const cIdx = commentsText.toLowerCase().indexOf(query.toLowerCase());
-    if (cIdx !== -1) {
-      return snippetAround(commentsText, cIdx, query.length);
+  if (idx === -1 && comments) {
+    const commentsText = comments();
+    if (commentsText) {
+      const cIdx = commentsText.toLowerCase().indexOf(query.toLowerCase());
+      if (cIdx !== -1) {
+        return snippetAround(commentsText, cIdx, query.length);
+      }
     }
   }
   if (idx === -1) {
