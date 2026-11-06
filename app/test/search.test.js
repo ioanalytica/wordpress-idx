@@ -6,8 +6,7 @@ import { buildTestIndex, startServer, SAMPLE_ENTRIES } from './helpers.js';
 let server;
 
 before(async () => {
-  const { index, entriesMap } = buildTestIndex();
-  server = await startServer(createSearchRouter(index, entriesMap));
+  server = await startServer(createSearchRouter(await buildTestIndex()));
 });
 
 after(async () => {

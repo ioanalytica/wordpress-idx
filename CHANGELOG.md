@@ -3,6 +3,40 @@
 What changed in each version of wordpress-idx. The sidecar and the WordPress
 plugin share one version; the entry of a version is its release notes.
 
+## 1.3.9
+
+* **The index of a large site is built and served with a fraction of the
+  memory.** The sidecar kept every entry and the whole search index as
+  JavaScript objects, and wrote and read them as one JSON document. On a site
+  of 15,600 posts and pages the build needed 4.7 GiB and failed with Node's
+  default heap, a rebuild needed 6.6 GiB, the sidecar held 1.1 GiB at rest,
+  and the document was at three quarters of the largest string Node can hold.
+  Now the entries and the index are kept in a compact binary form outside
+  the JavaScript heap, the site is read from the database in batches, indexed
+  in parts and merged on disk. The same site builds in 0.4 GiB, rests at
+  0.24 GiB and loads in 0.2 s instead of 2 s, with the default heap: no
+  `NODE_OPTIONS` is needed, and neither the build nor the file has a size at
+  which it stops working. The README has the figures under "Memory".
+* **The sidecar answers while it builds the index.** The build ran in the
+  thread that answers requests: for as long as it took, neither the search
+  nor `/healthz` answered, and on a large site Kubernetes restarted the
+  container in the middle of it. The build now runs in a process of its own.
+  During a rebuild the search keeps answering from the index that is there.
+* **A build that fails leaves the index in place.** The index file is written
+  under another name and gets its name when it is complete.
+* **The index file is `wp-index.bin`, and an index file of an earlier version
+  is rebuilt once.** The sidecar builds its index anew from the database at
+  the first start of this version, and needs the database for that start. It
+  then deletes `wp-index-flex.json`. No manual "Rebuild index" is needed.
+* **What the search returns has not changed**: the same entries in the same
+  order for every query, with every option, and the same statistics. The
+  tests hold each response against the one version 1.3.8 gave. Two orders
+  that were left to the database are now fixed: posts published in the same
+  second are ordered by their ID, newest first, and comments written in the
+  same second by their ID.
+* `/api/stats` answers faster: the characters and words of an entry are
+  counted when the index is built, not for every request.
+
 ## 1.3.8
 
 * **A query returns every match.** With `q`, the search returned at most 100

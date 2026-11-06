@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { buildSourceFile } from './indexer.js';
+import { buildIndexInChild } from './indexer.js';
 
 export function createReindexRouter(onReindexComplete) {
   const router = Router();
@@ -29,7 +29,7 @@ export function createReindexRouter(onReindexComplete) {
     reindexing = true;
     try {
       console.log('Reindex triggered via API...');
-      await buildSourceFile();
+      await buildIndexInChild();
       const entries = await onReindexComplete();
       console.log('Reindex complete.');
       res.json({ status: 'ok', entries });

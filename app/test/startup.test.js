@@ -2,8 +2,10 @@ import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 import { prepareIndex } from '../src/startup.js';
 
-const INDEX = { format: 2, entries: [{ id: 1 }], flexIndex: {} };
-const EMPTY = { format: 2, entries: [], flexIndex: {} };
+// What readIndex() resolves with: a loaded index, of which prepareIndex()
+// looks at the number of entries.
+const INDEX = { size: 1 };
+const EMPTY = { size: 0 };
 
 // Records what prepareIndex() does, with stand-ins for the file, the
 // database and the clock.

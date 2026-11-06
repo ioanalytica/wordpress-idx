@@ -3,7 +3,7 @@ Contributors: ioanalytica
 Tags: search, fulltext, full-text, flexsearch, idx
 Requires at least: 5.0
 Tested up to: 7.1
-Stable tag: 1.3.8
+Stable tag: 1.3.9
 Requires PHP: 7.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -72,6 +72,9 @@ The search UI is available in German, English, French, and Spanish. The language
 
 == Changelog ==
 
+= 1.3.9 =
+* No change in the plugin. Its sidecar builds and serves the index of a large site with a fraction of the memory, and keeps answering while "Rebuild index" runs
+
 = 1.3.8 =
 * The search form calls the sidecar under the path of `WORDPRESS_IDX_BASE` instead of a fixed `/idx`
 * A quoted phrase is also found in titles, which the sidecar searches from this version on
@@ -102,6 +105,9 @@ The search UI is available in German, English, French, and Spanish. The language
 * Admin settings for language, API key, and reindex
 
 == Upgrade Notice ==
+
+= 1.3.9 =
+No change in the plugin. Comes with sidecar 1.3.9, which rebuilds its index once at its first start.
 
 = 1.3.8 =
 The search form follows the sidecar's configured path, and the search covers titles. Comes with sidecar 1.3.8.

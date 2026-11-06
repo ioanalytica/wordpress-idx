@@ -25,7 +25,7 @@ All endpoints are served under the configurable `BASE_PATH` prefix (empty by def
 
 | Endpoint | Purpose | 200 when |
 |---|---|---|
-| `GET /healthz` | Liveness probe | Existing index found, or DB connected to build one |
+| `GET /healthz` | Liveness probe | Existing index found, or DB connected to build one. It keeps answering while the index is built |
 | `GET /readyz`  | Readiness probe | Search index loaded and API ready |
 
 ### Search
@@ -201,22 +201,48 @@ Extracts the posts and pages that are public, which is `publish` status without 
 - Fetches approved comments from `wp_comments` (regular comments only, no pingbacks/trackbacks)
 - Strips HTML tags and decodes common entities in content and comments, and for the search also in titles (an entry's `title` stays as WordPress stores it)
 - Normalises whitespace
+- Reads the site in batches of at most 500 posts or 4 MiB of text, so the build holds a part of the site at a time
 - Uses a single DB connection, closed after extraction
 
 Each indexed entry contains: `id`, `type`, `author`, `title`, `date`, `slug`, `categories`, `tags`, `content`, `comments`.
 
-## Index files
+## Index file
 
 Stored in `DATA_DIR`:
 
 | File | Purpose | Persistent |
 |---|---|---|
-| `wp-index-flex.json` | FlexSearch index chunks + entry metadata | Yes |
-| `wp-index-source.json` | Intermediate extraction output | Deleted after index build |
+| `wp-index.bin` | The entries as the API returns them, and the search index | Yes |
+| `wp-index.bin.<host>-<pid>.tmp`, `…runs.tmp` | The index file while it is written, and the build's intermediate results | Removed when the build ends; one that a killed build left behind is removed by a later build once it is an hour old |
 
-On startup the app checks for `wp-index-flex.json`. If found, it loads the index directly (no DB connection needed). If missing or `FORCE_UPDATE=true`, it extracts from the database and builds the index. A build that fails, because the database does not answer yet or WordPress has not created its tables, is tried again every 5 seconds until it succeeds; `/readyz` answers 503 in the meantime. A build that finds no public post or page is repeated once after the same pause before its empty index is served, because WordPress creates its tables a moment before it fills them; for the same reason an index file without entries is not loaded at a start but built again.
+On startup the app checks for `wp-index.bin`. If found, it loads the index directly (no DB connection needed). If missing or `FORCE_UPDATE=true`, it extracts from the database and builds the index. A build that fails, because the database does not answer yet or WordPress has not created its tables, is tried again every 5 seconds until it succeeds; `/readyz` answers 503 in the meantime. A build that finds no public post or page is repeated once after the same pause before its empty index is served, because WordPress creates its tables a moment before it fills them; for the same reason an index file without entries is not loaded at a start but built again.
 
-The index file carries a format number. A file written by an earlier version of the sidecar, in another format, is not loaded: the index is built anew from the database at the first start of the new version, once.
+The index file carries a format number. A file written by an earlier version of the sidecar, in another format, is not loaded: the index is built anew from the database at the first start of the new version, once. The files of the earlier formats (`wp-index-flex.json`, `wp-index-source.json`) are deleted once the new index is written.
+
+The file is written under a name of its own and gets its name when it is complete: a build that fails, or is killed, leaves the index that was there in place.
+
+## Memory
+
+FlexSearch tokenizes, scores and matches, at build time and for every query. What it would keep in memory, every entry and every posting as JavaScript objects, is kept in the index file's compact form instead, in memory outside the JavaScript heap. The heap stays small whatever the size of the site, so Node's default heap limit is enough and `NODE_OPTIONS=--max-old-space-size` is not needed.
+
+- **At rest** the sidecar holds the index file in memory once, plus about 100 MiB for Node itself.
+- **A build** runs in a process of its own, next to the service, which keeps answering requests and health checks. It reads the site in batches, indexes it in parts and merges them on disk. It needs 0.25 to 0.55 GiB, depending on how many different words the text has and hardly on the size of the site; `DATA_DIR` needs room for three to four times the index file while it runs.
+- **After a rebuild** (`POST /api/reindex`) the new index is loaded before the old one is let go, so for a moment both are in memory.
+
+Measured on a site of 15,600 posts and pages with 44 million characters of content and 37,000 comments, on Node.js 26 in a container with the memory limit named, without `NODE_OPTIONS`:
+
+| | Version 1.3.8 | This version |
+|---|---|---|
+| Index file | 415 MB | 143 MB |
+| Build at the first start, peak memory | 4.7 GiB, with an 8 GiB limit and a 6 GiB heap; fails with the default heap | 0.4 GiB with a 2 GiB limit, 0.3 GiB with 1 GiB |
+| Rebuild while serving, peak memory | 6.6 GiB | 0.6 GiB with a 2 GiB limit, 0.5 GiB with 1 GiB |
+| At rest | 1.1 GiB | 0.24 GiB |
+| Loading the index at a restart | 2.0 s, 2.5 GiB peak | 0.2 s, no peak |
+| Longest time without an answer from `/healthz` during a build | 19 s | 0.1 s |
+
+A memory limit of 1 GiB leaves that site twice the room it needs. With the chart's default for the sidecar (768 MiB) its build and its rebuild peaked at 0.46 GiB.
+
+For a site that was not measured, plan with a limit of twice the size of the index file plus 0.6 GiB: the index in memory and either the build next to it or, for the moment after a rebuild, the new index. That is a bound with room to spare, since it counts the most a build was seen to need (0.55 GiB, for text with many different words); for the site above it gives 0.87 GiB, nearly twice its measured peak.
 
 ## Kubernetes sidecar deployment
 

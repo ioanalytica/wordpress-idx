@@ -4,8 +4,7 @@ import { createSearchRouter } from '../src/searcher.js';
 import { buildTestIndex, startServer, SAMPLE_ENTRIES } from './helpers.js';
 
 async function serve(entries) {
-  const { index, entriesMap } = buildTestIndex(entries);
-  const server = await startServer(createSearchRouter(index, entriesMap));
+  const server = await startServer(createSearchRouter(await buildTestIndex(entries)));
   const get = async (path) => {
     const res = await fetch(server.baseUrl + path);
     return { status: res.status, body: await res.json() };

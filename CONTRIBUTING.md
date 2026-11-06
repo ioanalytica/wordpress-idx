@@ -43,7 +43,11 @@ CI runs them on Node.js 24. This run needs no database: the tests of the
 database layer are skipped and say so. One of the tests reads
 [`API_PROMPT.md`](API_PROMPT.md) and fails when the routes, the query
 parameters or the headers of the reindex call it names differ from the code,
-so a change to the API changes that file in the same pull request.
+so a change to the API changes that file in the same pull request. Another
+holds every response of the search API against the one version 1.3.8 gave
+(`test/reference-searcher.js`), over a generated site: it guards that the
+index file and its reader add no difference of their own, so a change to
+what the search returns is made in that reference too.
 
 To run those too, as the CI job "test (with MySQL)" does, give the suite a
 MySQL it may write to:

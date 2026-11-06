@@ -1,12 +1,13 @@
 import { test, describe, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { createServer } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { ENABLED, DB, connect, createTables, dropTables } from './db-helpers.js';
+import { generateEntries } from './corpus.js';
 
 // Starts the service itself, as a process, against a real MySQL. Opt-in via
 // IDX_TEST_DB=1, like db.test.js, and under table prefixes of its own.
@@ -145,7 +146,8 @@ describe('start before WordPress has created its tables', { skip: SKIP }, () => 
 });
 
 // An index file written before the format had a number: built by a version
-// that indexed other fields and selected other entries.
+// that indexed other fields and selected other entries, under the file name
+// of formats 1 and 2.
 describe('start with an index file of an earlier format', { skip: SKIP }, () => {
   const PREFIX = `idx_format_${RUN}_`;
   let service;
@@ -190,8 +192,71 @@ describe('start with an index file of an earlier format', { skip: SKIP }, () => 
     assert.deepEqual(all.results.map((r) => r.id), [1]);
     assert.equal((await search(service, 'hello')).total, 1);
 
-    const file = JSON.parse(readFileSync(join(dataDir, 'wp-index-flex.json'), 'utf-8'));
-    assert.equal(file.format, 2);
+    // The index is in this version's file, and the old file is gone.
+    assert.deepEqual(readdirSync(dataDir), ['wp-index.bin']);
     assert.match(service.output, /it will be rebuilt/);
+  });
+});
+
+// Indexing occupies the thread it runs in for as long as the site is large.
+// The kubelet restarts a container whose liveness probe gets no answer, so
+// the build must not be in the thread that answers it.
+describe('start with a site that takes a while to index', { skip: SKIP }, () => {
+  const PREFIX = `idx_large_${RUN}_`;
+  const POSTS = 3000;
+  let service;
+  let dataDir;
+
+  before(async () => {
+    // About twelve million characters of generated text.
+    const entries = generateEntries(POSTS, { seed: 5, words: 370 });
+    await withConnection(async (conn) => {
+      await createTables(conn, PREFIX);
+      for (let i = 0; i < entries.length; i += 200) {
+        const rows = entries.slice(i, i + 200).map((e) => [e.id, 0, e.date, `<p>${e.content}</p>`, e.title, `post-${e.id}`]);
+        await conn.query(
+          `INSERT INTO ${PREFIX}posts (ID, post_author, post_date, post_content, post_title, post_name) VALUES ?`,
+          [rows],
+        );
+      }
+    });
+    dataDir = mkdtempSync(join(tmpdir(), 'idx-large-'));
+    service = await startService(dataDir, PREFIX);
+  });
+
+  after(async () => {
+    await stopService(service);
+    if (dataDir) rmSync(dataDir, { recursive: true, force: true });
+    if (ENABLED) await withConnection((conn) => dropTables(conn, PREFIX));
+  });
+
+  test('the service answers its liveness probe while it builds the index', async () => {
+    await waitForStatus(`${service.baseUrl}/healthz`, 200, 10_000);
+
+    // Probe until the index is served, and keep the slowest answer.
+    const deadline = Date.now() + 120_000;
+    let probes = 0;
+    let slowest = 0;
+    for (;;) {
+      const started = Date.now();
+      const res = await fetch(`${service.baseUrl}/healthz`);
+      const { ready } = await res.json();
+      assert.equal(res.status, 200);
+      if (ready) break;
+      probes++;
+      slowest = Math.max(slowest, Date.now() - started);
+      assert.ok(Date.now() < deadline, `the index was not built in time\n--- service output ---\n${service.output}`);
+      await sleep(50);
+    }
+
+    assert.ok(slowest < 1000, `a liveness probe waited ${slowest} ms for its answer during the build`);
+    // A probe every 50 ms: a build that blocks the service lets few through.
+    assert.ok(
+      probes >= 5,
+      `only ${probes} probes were answered before the index was served: the build held them up, or the site is too small to show it`,
+    );
+
+    const all = await (await fetch(`${service.baseUrl}/api/search?limit=1`)).json();
+    assert.equal(all.total, POSTS);
   });
 });
