@@ -3,7 +3,7 @@
 What changed in each version of wordpress-idx. The sidecar and the WordPress
 plugin share one version; the entry of a version is its release notes.
 
-## Unreleased
+## 1.3.9
 
 * **The index of a large site is built and served with a fraction of the
   memory.** The sidecar kept every entry and the whole search index as
