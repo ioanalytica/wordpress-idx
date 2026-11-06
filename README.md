@@ -240,7 +240,9 @@ Measured on a site of 15,600 posts and pages with 44 million characters of conte
 | Loading the index at a restart | 2.0 s, 2.5 GiB peak | 0.2 s, no peak |
 | Longest time without an answer from `/healthz` during a build | 19 s | 0.1 s |
 
-A memory limit of 1 GiB leaves that site twice the room it needs, and the chart's default for the sidecar (768 MiB) is enough for it. The limit to plan for is twice the size of the index file plus 0.6 GiB: the index in memory and either the build next to it or, for the moment after a rebuild, the new index.
+A memory limit of 1 GiB leaves that site twice the room it needs. With the chart's default for the sidecar (768 MiB) its build and its rebuild peaked at 0.46 GiB.
+
+For a site that was not measured, plan with a limit of twice the size of the index file plus 0.6 GiB: the index in memory and either the build next to it or, for the moment after a rebuild, the new index. That is a bound with room to spare, since it counts the most a build was seen to need (0.55 GiB, for text with many different words); for the site above it gives 0.87 GiB, nearly twice its measured peak.
 
 ## Kubernetes sidecar deployment
 
