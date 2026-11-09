@@ -14,8 +14,8 @@
     // Calls in a row that may fail (a replica restarting, a proxy hiccup)
     // before the page gives up asking.
     var MAX_ERRORS = 3;
-    // How long the page goes on asking while the answer does not name the
-    // rebuild it started. With several replicas the poll can reach another
+    // How long the page goes on asking while the answer is not the state of
+    // the rebuild it started. With several replicas the poll can reach another
     // one than the rebuild runs in, and on a network volume that replica may
     // see the state of the rebuild only after a while; until then it reports
     // the one before, or none.
@@ -62,10 +62,14 @@
     var since = null;
     var sentAt = 0;
 
-    /** Whether a state is that of the rebuild this page started, or a later one. */
+    /**
+     * Whether a state is that of the rebuild this page started. The state of
+     * any other rebuild, before or after it, says nothing about how this one
+     * ended.
+     */
     function ours(data) {
         if (!since) return true;
-        return Boolean(data.startedAt) && data.startedAt >= since;
+        return data.startedAt === since;
     }
 
     /** A call failed: asks again, until MAX_ERRORS calls in a row have failed. */
@@ -85,12 +89,12 @@
                 }
                 errors = 0;
                 var data = resp.data || {};
-                if (data.state === 'running') setTimeout(poll, POLL_MS);
-                else if (!ours(data)) {
+                if (!ours(data)) {
                     if (Date.now() - sentAt < UNSEEN_MS)
                         setTimeout(poll, POLL_MS);
                     else fail(cfg.reindexUnseen);
-                } else if (data.state === 'done') done(data.entries);
+                } else if (data.state === 'running') setTimeout(poll, POLL_MS);
+                else if (data.state === 'done') done(data.entries);
                 else if (data.state === 'failed') fail(data.message);
                 else fail(data.state);
             })
