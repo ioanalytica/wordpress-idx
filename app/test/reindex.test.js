@@ -1,6 +1,6 @@
 import { test, describe, before, after, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -285,6 +285,27 @@ describe('rebuilds and their state', () => {
     const state = await other.read();
     assert.equal(state.state, 'done');
     assert.equal(state.entries, 4);
+  });
+
+  test('an end written late does not replace the record of a rebuild that started since', async () => {
+    let broken = false;
+    const writeText = async (file, text) => {
+      if (broken) throw new Error('no space left on device');
+      return writeFile(file, text);
+    };
+    const own = createReindexState({ dir, host: 'pod-a', heartbeatMs: 5, writeText });
+    const other = createReindexState({ dir, host: 'pod-b' });
+    await own.start();
+    broken = true;
+    await own.finish(4);
+    await other.start();
+
+    broken = false;
+    await sleep(50);
+    const state = await own.read();
+    assert.equal(state.state, 'running', 'the rebuild of pod-b is what the file says');
+    assert.equal(JSON.parse(readFileSync(join(dir, STATE_FILE), 'utf8')).host, 'pod-b');
+    await other.finish(6);
   });
 
   test('a running rebuild writes its state again, so that it does not go stale', async () => {

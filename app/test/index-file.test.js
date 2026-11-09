@@ -251,6 +251,45 @@ describe('the index file', () => {
   });
 
   describe('buildIndexInChild()', () => {
+    /** Writes `lines` as a build script in a directory of its own and returns its path and that directory. */
+    function childScript(lines) {
+      const scripts = mkdtempSync(join(tmpdir(), 'idx-child-'));
+      const script = join(scripts, 'build.mjs');
+      const src = (name) => pathToFileURL(join(import.meta.dirname, '..', 'src', name)).href;
+      writeFileSync(
+        script,
+        [
+          `import { statSync, utimesSync } from 'node:fs';`,
+          `import { join } from 'node:path';`,
+          `import { INDEX_FILE } from '${src('index-format.js')}';`,
+          `import { IndexWriter } from '${src('index-writer.js')}';`,
+          ...lines,
+        ].join('\n'),
+      );
+      return { script, scripts };
+    }
+
+    test('touches the files of its build while it runs, so that no other sidecar takes them for a dead build', async () => {
+      // A build that indexes for longer than the hour after which another
+      // sidecar removes a file it has not seen written: its files are two
+      // hours old, and the service touches them meanwhile.
+      const { script, scripts } = childScript([
+        `const writer = new IndexWriter(join(process.argv[2], INDEX_FILE));`,
+        `const old = new Date(Date.now() - 2 * 60 * 60 * 1000);`,
+        `for (const path of [writer.tmpPath, writer.runsPath]) utimesSync(path, old, old);`,
+        `await new Promise((resolve) => setTimeout(resolve, 200));`,
+        `const ages = [writer.tmpPath, writer.runsPath].map((path) => Date.now() - statSync(path).mtimeMs);`,
+        `writer.abort();`,
+        `process.send({ ok: true, summary: { ages } }, () => process.exit(0));`,
+      ]);
+      try {
+        const { ages } = await buildIndexInChild(dir, { child: script, touchMs: 10 });
+        for (const age of ages) assert.ok(age < 60 * 1000, `a file of the running build is ${age} ms old`);
+      } finally {
+        rmSync(scripts, { recursive: true, force: true });
+      }
+    });
+
     test('removes the files of a build whose process was killed', async () => {
       // A build that has written its first entries when the kernel ends it.
       const scripts = mkdtempSync(join(tmpdir(), 'idx-child-'));

@@ -96,18 +96,45 @@ export function createReindexState({
     } catch (err) {
       console.warn(`The end of the rebuild cannot be written (${err.message}); trying again.`);
       const ended = current;
-      retry = setInterval(() => {
-        write(ended).then(
-          () => {
-            clearInterval(retry);
-            retry = null;
+      let trying = false;
+      retry = setInterval(async () => {
+        if (trying) return;
+        trying = true;
+        try {
+          // Another sidecar may have started the next rebuild meanwhile: its
+          // record is not replaced by the end of this one.
+          const onDisk = await readRecord();
+          if (onDisk === null || isRecordOf(onDisk, ended)) {
+            await write(ended);
             console.log('The end of the rebuild is written.');
-          },
-          () => {},
-        );
+          } else {
+            console.log('The end of the rebuild is not written: another rebuild has started since.');
+          }
+          clearInterval(retry);
+          retry = null;
+        } catch {
+          // Tried again at the next beat.
+        } finally {
+          trying = false;
+        }
       }, heartbeatMs);
       retry.unref();
     }
+  }
+
+  /** The record in the state file as it is written, or null when there is none. */
+  async function readRecord() {
+    try {
+      return JSON.parse(await readFile(path(), 'utf8'));
+    } catch (err) {
+      if (err.code === 'ENOENT') return null;
+      throw err;
+    }
+  }
+
+  /** Whether `record` is that of the rebuild `of`: same sidecar, same start. */
+  function isRecordOf(record, of) {
+    return Boolean(record) && record.host === of.host && record.pid === of.pid && record.startedAt === of.startedAt;
   }
 
   /** What GET reports of a state as it is written. */
@@ -139,13 +166,7 @@ export function createReindexState({
       return unusable('is not a state this version writes');
     }
     // The rebuild of this sidecar has ended, and the end is not written yet.
-    const ownEnd =
-      current &&
-      current.state !== 'running' &&
-      state.state === 'running' &&
-      state.host === host &&
-      state.pid === pid &&
-      state.startedAt === current.startedAt;
+    const ownEnd = current && current.state !== 'running' && state.state === 'running' && isRecordOf(state, current);
     if (ownEnd) return report(current);
     // A time that is not a string is no time: such a state is stale.
     const updated = typeof state.updatedAt === 'string' ? Date.parse(state.updatedAt) : Number.NaN;

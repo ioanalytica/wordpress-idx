@@ -24,8 +24,10 @@ plugin share one version; the entry of a version is its release notes.
   so on a volume with little room the sidecar could fail to build its index
   for good. The service now removes the files of its build process when that
   process ends without a result, and every build first removes what a build
-  on the same host left whose process is gone; the files of a build on
-  another host are still removed after an hour, since it may be running.
+  on the same host left whose process is gone, and any build file that has
+  not been written for an hour. While a build runs, its service touches its
+  files every five minutes, so a sidecar of another replica on the same
+  volume does not remove them, however long the build takes.
 * **"Rebuild index" reports the end of a long rebuild.** The rebuild of a
   large site takes minutes, and the call that started it waited for the end:
   the plugin gave up after 120 seconds, a proxy usually after 60, and the

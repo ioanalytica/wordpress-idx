@@ -1,4 +1,4 @@
-import { readdirSync, rmSync, statSync } from 'node:fs';
+import { readdirSync, rmSync, statSync, utimesSync } from 'node:fs';
 import { hostname } from 'node:os';
 import { join } from 'node:path';
 import { fork } from 'node:child_process';
@@ -12,6 +12,10 @@ import { loadIndexFile, IndexFileError } from './search-index.js';
 // A build that died leaves its unfinished file behind. One that is this old
 // is not being written any more.
 const STALE_TMP_MS = 60 * 60 * 1000;
+
+// While a build runs, the service that started it touches its files at this
+// pace, well within STALE_TMP_MS (see buildIndexInChild()).
+const TOUCH_MS = 5 * 60 * 1000;
 
 // The names of the files a build writes next to the index file
 // (buildFilePaths() in index-writer.js), with the host and the process ID of
@@ -73,7 +77,8 @@ export async function readIndexFile(dir = config.dataDir) {
  * ran on this host and its process is gone, and in any case once the file is
  * an hour old. A build on another host, a sidecar of another replica on the
  * same volume, may still be writing its file, and its process cannot be seen
- * from here. On this host the process ID decides first: in a container that
+ * from here; the service that runs it touches its files every few minutes,
+ * so they are never an hour old while it runs. On this host the process ID decides first: in a container that
  * restarted, the processes of the one before are gone; two services on one
  * machine see each other's processes. A process ID that is in use again
  * keeps the file until the hour is over.
@@ -147,22 +152,42 @@ const BUILD_CHILD = fileURLToPath(new URL('./build-child.js', import.meta.url));
  * the build occupies its own thread, and what the build needed in memory
  * goes back to the system when that process ends. A worker thread would keep
  * the service free as well, but the memory it used stays with the process.
- * `child` is the script that process runs; tests give another.
+ * `child` is the script that process runs; tests give another, and a
+ * shorter `touchMs`.
  */
-export function buildIndexInChild(dir = config.dataDir, { child: script = BUILD_CHILD } = {}) {
+export function buildIndexInChild(dir = config.dataDir, { child: script = BUILD_CHILD, touchMs = TOUCH_MS } = {}) {
   return new Promise((resolve, reject) => {
     const child = fork(script, [dir]);
+    const files = child.pid ? Object.values(buildFilePaths(join(dir, INDEX_FILE), child.pid)) : [];
+    // The build cannot touch its own files: indexing occupies its thread
+    // for as long as it takes. A sidecar on another host that cleans up
+    // goes by their age (removeDeadBuilds()), so the service touches them.
+    const touch = setInterval(() => {
+      const at = new Date();
+      for (const path of files) {
+        try {
+          utimesSync(path, at, at);
+        } catch {
+          // Not written yet, or already renamed.
+        }
+      }
+    }, touchMs);
+    touch.unref();
     let result = null;
     // Under `node --watch` the child also reports the files it loads here.
     child.on('message', (message) => {
       if (message && typeof message.ok === 'boolean') result = message;
     });
-    child.once('error', reject);
+    child.once('error', (err) => {
+      clearInterval(touch);
+      reject(err);
+    });
     child.once('exit', (code, signal) => {
+      clearInterval(touch);
       // A build that was killed (by the kernel for memory, say) could not
       // remove its files; the next attempt would add two more.
-      if (!result && child.pid) {
-        for (const path of Object.values(buildFilePaths(join(dir, INDEX_FILE), child.pid))) rmSync(path, { force: true });
+      if (!result) {
+        for (const path of files) rmSync(path, { force: true });
       }
       if (result && result.ok) resolve(result.summary);
       else if (result) reject(new Error(result.message));
