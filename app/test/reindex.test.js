@@ -143,15 +143,22 @@ describe('rebuilds and their state', () => {
     // rebuild has written and renamed its own: the order in which a shared
     // temporary file would be linked away or removed.
     let release;
+    let written;
     const held = new Promise((resolve) => {
       release = resolve;
     });
+    const idleWritten = new Promise((resolve) => {
+      written = resolve;
+    });
     const writeText = async (file, text) => {
       await writeFile(file, text);
-      if (JSON.parse(text).state === 'idle') await held;
+      if (JSON.parse(text).state !== 'idle') return;
+      written();
+      await held;
     };
     const state = createReindexState({ dir, host: 'pod-a', writeText });
     const ensured = state.ensure();
+    await idleWritten;
     const startedAt = await state.start();
     release();
     await ensured;
