@@ -62,7 +62,15 @@ export function createReindexRouter(
     // A rebuild of another sidecar on the same volume. Two calls at the same
     // moment to two sidecars can both start one: this is no lock, and two
     // rebuilds at once do no harm.
-    if ((await state.read()).state === 'running') {
+    let shared;
+    try {
+      shared = await state.read();
+    } catch (err) {
+      reindexing = false;
+      console.error('Reindex not started:', err.message);
+      return res.status(500).json({ error: 'Reindex failed', message: `Its state cannot be read: ${err.message}` });
+    }
+    if (shared.state === 'running') {
       reindexing = false;
       return res.status(409).json({ error: 'Reindex already in progress.' });
     }

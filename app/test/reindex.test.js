@@ -220,6 +220,31 @@ describe('rebuilds and their state', () => {
     });
   }
 
+  test('a running state whose time is not a string is stale, and reading it does not throw', async () => {
+    writeFileSync(join(dir, STATE_FILE), JSON.stringify({ state: 'running', updatedAt: { toString: 1, valueOf: 1 } }));
+    const s = await sidecar();
+    assert.equal((await call(s, 'GET')).body.state, 'failed');
+    assert.equal((await call(s, 'POST')).status, 200);
+  });
+
+  test('a state that cannot be read: 500, and the next call may start a rebuild', async () => {
+    const real = createReindexState({ dir });
+    let fails = 1;
+    const state = {
+      ...real,
+      read: async () => {
+        if (fails-- > 0) throw new Error('the volume does not answer');
+        return real.read();
+      },
+    };
+    const s = await startServer(createReindexRouter(async () => 2, { state, build: async () => {} }));
+    servers.push(s);
+    const first = await call(s, 'POST');
+    assert.equal(first.status, 500);
+    assert.match(first.body.message, /the volume does not answer/);
+    assert.equal((await call(s, 'POST')).status, 200, 'the sidecar is not left believing it rebuilds');
+  });
+
   test('a state file that cannot be read is reported failed, not idle', async () => {
     mkdirSync(join(dir, STATE_FILE));
     const state = await createReindexState({ dir }).read();

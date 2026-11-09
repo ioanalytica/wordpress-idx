@@ -147,7 +147,9 @@ export function createReindexState({
       state.pid === pid &&
       state.startedAt === current.startedAt;
     if (ownEnd) return report(current);
-    if (state.state === 'running' && !(now() - Date.parse(state.updatedAt) <= staleMs)) {
+    // A time that is not a string is no time: such a state is stale.
+    const updated = typeof state.updatedAt === 'string' ? Date.parse(state.updatedAt) : Number.NaN;
+    if (state.state === 'running' && !(now() - updated <= staleMs)) {
       return { ...report(state), state: 'failed', message: STOPPED };
     }
     return report(state);
