@@ -150,9 +150,21 @@ class Test_Wordpress_Idx_Search extends WP_UnitTestCase {
 
 	public function test_start_reindex_asks_the_sidecar_not_to_wait() {
 		update_option( WordpressIdxSearch::OPTION_API_KEY, 'the-key' );
-		$calls = $this->mock_sidecar_response( 202, array( 'status' => 'running' ) );
+		$calls = $this->mock_sidecar_response(
+			202,
+			array(
+				'status'    => 'running',
+				'startedAt' => '2026-11-09T15:00:00.000Z',
+			)
+		);
 
-		$this->assertSame( array( 'state' => 'running' ), $this->plugin->start_reindex() );
+		$this->assertSame(
+			array(
+				'state'     => 'running',
+				'startedAt' => '2026-11-09T15:00:00.000Z',
+			),
+			$this->plugin->start_reindex()
+		);
 		$this->assertCount( 1, $calls );
 		$this->assertStringEndsWith( '/api/reindex', $calls[0]['url'] );
 		$this->assertSame( 'POST', $calls[0]['args']['method'] );
@@ -221,9 +233,10 @@ class Test_Wordpress_Idx_Search extends WP_UnitTestCase {
 
 		$this->assertSame(
 			array(
-				'state'   => 'failed',
-				'entries' => null,
-				'message' => 'the database does not answer',
+				'state'     => 'failed',
+				'startedAt' => '2026-11-09T15:00:00.000Z',
+				'entries'   => null,
+				'message'   => 'the database does not answer',
 			),
 			$this->plugin->reindex_status()
 		);

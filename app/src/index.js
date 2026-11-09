@@ -9,6 +9,7 @@ import { buildIndexInChild, readIndexFile } from './indexer.js';
 import { prepareIndex } from './startup.js';
 import { createSearchRouter } from './searcher.js';
 import { createReindexRouter } from './reindex.js';
+import { createReindexState } from './reindex-state.js';
 import { createPluginRouter } from './plugin.js';
 
 const app = express();
@@ -106,7 +107,9 @@ async function loadIndex() {
 }
 
 // Mount reindex endpoint
-baseRouter.use(createReindexRouter(loadIndex));
+// The state of the rebuilds, which the sidecars on the volume share.
+const reindexState = createReindexState({ dir: config.dataDir });
+baseRouter.use(createReindexRouter(loadIndex, { state: reindexState }));
 
 // Serve the bundled WordPress plugin + update manifest (self-hosted auto-updates)
 baseRouter.use(createPluginRouter());
@@ -118,6 +121,7 @@ const server = app.listen(config.port, async () => {
   console.log(`wordpress-idx listening on port ${config.port}`);
   console.log(`Data directory: ${config.dataDir}`);
   if (config.basePath) console.log(`Base path: ${config.basePath}`);
+  reindexState.ensure().catch((err) => console.warn(`The state of the rebuilds cannot be written: ${err.message}`));
 
   try {
     const index = await prepareIndex({

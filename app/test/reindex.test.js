@@ -125,6 +125,19 @@ describe('rebuilds and their state', () => {
     throw new Error('the rebuild did not end');
   }
 
+  test('ensure() writes the idle record once, and leaves a state that is there', async () => {
+    const a = createReindexState({ dir, host: 'pod-a' });
+    const b = createReindexState({ dir, host: 'pod-b' });
+    await Promise.all([a.ensure(), b.ensure()]);
+    assert.deepEqual(readdirSync(dir), [STATE_FILE], 'one record, no temporary file');
+    assert.deepEqual(await b.read(), { state: 'idle' });
+
+    await a.start();
+    await b.ensure();
+    assert.equal((await b.read()).state, 'running', 'a sidecar that starts later does not reset a running rebuild');
+    await a.finish(1);
+  });
+
   test('nothing rebuilt yet: idle', async () => {
     const s = await sidecar();
     assert.deepEqual((await call(s, 'GET')).body, { state: 'idle' });
@@ -147,14 +160,17 @@ describe('rebuilds and their state', () => {
     const s = await sidecar({ build: g.build, entries: 5 });
     const started = await call(s, 'POST', { prefer: 'respond-async' });
     assert.equal(started.status, 202);
-    assert.deepEqual(started.body, { status: 'running' });
+    assert.equal(started.body.status, 'running');
     assert.equal(started.headers.get('preference-applied'), 'respond-async');
-    assert.equal((await call(s, 'GET')).body.state, 'running');
+    const running = (await call(s, 'GET')).body;
+    assert.equal(running.state, 'running');
+    assert.equal(running.startedAt, started.body.startedAt, 'the 202 names the rebuild that GET reports');
 
     g.open();
     const state = await settled(s);
     assert.equal(state.state, 'done');
     assert.equal(state.entries, 5);
+    assert.equal(state.startedAt, started.body.startedAt);
   });
 
   test('a failed rebuild: 500 to the call that waits, failed with the message to GET', async () => {

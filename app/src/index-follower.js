@@ -9,10 +9,12 @@
 //
 // A follower never builds. A file it cannot load, such as one that a sidecar
 // of another version wrote during a rolling update, leaves the served index
-// in place, and so does a file that is gone.
+// in place, and so does a file that is gone. A file whose content cannot be
+// read is tried again only once it has changed; after any other failure the
+// next check tries it again.
 import { stat as statFile } from 'node:fs/promises';
 import { INDEX_FORMAT } from './index-format.js';
-import { loadIndexFile } from './search-index.js';
+import { IndexFileError, loadIndexFile } from './search-index.js';
 
 /**
  * Whether `stats` (of a stat with `bigint: true`) describe the file that
@@ -95,7 +97,10 @@ export function createIndexFollower({
       index = await load(path);
     } catch (err) {
       if (required) throw err;
-      refused = identity(stats);
+      // Only a file whose content this version cannot read waits until it
+      // changes. A failure of the file system or of memory may pass: the
+      // next check tries the same file again.
+      if (err instanceof IndexFileError) refused = identity(stats);
       tell(`Index file ${path} cannot be loaded (${reason(err)}); the index loaded before is served.`);
       return current;
     }

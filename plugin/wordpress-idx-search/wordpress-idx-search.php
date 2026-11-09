@@ -88,6 +88,7 @@ class WordpressIdxSearch {
 			'admin_reindex_run'        => 'Reindex läuft…',
 			'admin_reindex_done'       => 'Fertig – %s Einträge indexiert.',
 			'admin_reindex_error'      => 'Fehler: ',
+			'admin_reindex_unseen'     => 'Der Stand des Neuaufbaus ist nicht zu sehen.',
 			'admin_no_key'             => 'Kein API-Key konfiguriert.',
 			'admin_update_title'       => 'Plugin-Aktualisierung',
 			'admin_update_installed'   => 'Installiert:',
@@ -138,6 +139,7 @@ class WordpressIdxSearch {
 			'admin_reindex_run'        => 'Reindexing…',
 			'admin_reindex_done'       => 'Done – %s entries indexed.',
 			'admin_reindex_error'      => 'Error: ',
+			'admin_reindex_unseen'     => 'The state of the rebuild cannot be seen.',
 			'admin_no_key'             => 'No API key configured.',
 			'admin_update_title'       => 'Plugin update',
 			'admin_update_installed'   => 'Installed:',
@@ -188,6 +190,7 @@ class WordpressIdxSearch {
 			'admin_reindex_run'        => 'Réindexation en cours…',
 			'admin_reindex_done'       => 'Terminé – %s entrées indexées.',
 			'admin_reindex_error'      => 'Erreur : ',
+			'admin_reindex_unseen'     => 'L\'état de la reconstruction n\'est pas visible.',
 			'admin_no_key'             => 'Aucune clé API configurée.',
 			'admin_update_title'       => 'Mise à jour de l\'extension',
 			'admin_update_installed'   => 'Installée :',
@@ -238,6 +241,7 @@ class WordpressIdxSearch {
 			'admin_reindex_run'        => 'Reindexando…',
 			'admin_reindex_done'       => 'Listo – %s entradas indexadas.',
 			'admin_reindex_error'      => 'Error: ',
+			'admin_reindex_unseen'     => 'El estado de la reconstrucción no es visible.',
 			'admin_no_key'             => 'No hay clave API configurada.',
 			'admin_update_title'       => 'Actualización del plugin',
 			'admin_update_installed'   => 'Instalada:',
@@ -467,11 +471,12 @@ class WordpressIdxSearch {
 			'idx-search-admin',
 			'idxAdmin',
 			array(
-				'ajaxUrl'      => admin_url( 'admin-ajax.php' ),
-				'nonce'        => wp_create_nonce( 'idx_reindex' ),
-				'reindexRun'   => $t['admin_reindex_run'],
-				'reindexDone'  => $t['admin_reindex_done'],
-				'reindexError' => $t['admin_reindex_error'],
+				'ajaxUrl'       => admin_url( 'admin-ajax.php' ),
+				'nonce'         => wp_create_nonce( 'idx_reindex' ),
+				'reindexRun'    => $t['admin_reindex_run'],
+				'reindexDone'   => $t['admin_reindex_done'],
+				'reindexError'  => $t['admin_reindex_error'],
+				'reindexUnseen' => $t['admin_reindex_unseen'],
 			)
 		);
 	}
@@ -566,8 +571,10 @@ class WordpressIdxSearch {
 	 * end, which on a large site comes after minutes, longer than a proxy or
 	 * this request may wait. reindex_status() tells how it ends.
 	 *
-	 * @return array|WP_Error `state` 'running', or 'done' with `entries` from
-	 *                        a sidecar that waited for the end after all.
+	 * @return array|WP_Error `state` 'running' with the `startedAt` that names
+	 *                        the rebuild in reindex_status(), or 'done' with
+	 *                        `entries` from a sidecar that waited for the end
+	 *                        after all.
 	 */
 	public function start_reindex() {
 		$response = $this->call_reindex(
@@ -580,7 +587,10 @@ class WordpressIdxSearch {
 		}
 		list( $code, $body ) = $response;
 		if ( 202 === $code ) {
-			return array( 'state' => 'running' );
+			return array(
+				'state'     => 'running',
+				'startedAt' => isset( $body['startedAt'] ) ? $body['startedAt'] : null,
+			);
 		}
 		if ( 200 === $code ) {
 			return array(
@@ -595,8 +605,8 @@ class WordpressIdxSearch {
 	 * The state of the last rebuild, from the sidecar: the one in this pod,
 	 * which reports it also when the sidecar of another replica runs it.
 	 *
-	 * @return array|WP_Error `state` (idle, running, done, failed), `entries`,
-	 *                        `message`.
+	 * @return array|WP_Error `state` (idle, running, done, failed),
+	 *                        `startedAt`, `entries`, `message`.
 	 */
 	public function reindex_status() {
 		$response = $this->call_reindex( 'GET', array(), 15 );
@@ -606,9 +616,10 @@ class WordpressIdxSearch {
 		list( $code, $body ) = $response;
 		if ( 200 === $code && is_array( $body ) && isset( $body['state'] ) ) {
 			return array(
-				'state'   => (string) $body['state'],
-				'entries' => isset( $body['entries'] ) ? $body['entries'] : null,
-				'message' => isset( $body['message'] ) ? $body['message'] : null,
+				'state'     => (string) $body['state'],
+				'startedAt' => isset( $body['startedAt'] ) ? $body['startedAt'] : null,
+				'entries'   => isset( $body['entries'] ) ? $body['entries'] : null,
+				'message'   => isset( $body['message'] ) ? $body['message'] : null,
 			);
 		}
 		return $this->reindex_error( $code, $body );

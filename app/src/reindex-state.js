@@ -13,7 +13,7 @@
 // reported as failed. The end of a rebuild that cannot be written is tried
 // again at the same pace until it is written, and the sidecar that ran the
 // rebuild reports that end in the meantime.
-import { readFile, rename, rm, writeFile } from 'node:fs/promises';
+import { link, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import { hostname } from 'node:os';
 import { join } from 'node:path';
 
@@ -23,17 +23,19 @@ export const STALE_MS = 60 * 1000;
 
 const STOPPED = 'The rebuild stopped without finishing: the sidecar that ran it ended or was restarted.';
 
-// The states a sidecar writes; `idle` is what there is before the first.
-const WRITTEN = ['running', 'done', 'failed'];
+// The states a sidecar writes. `idle` is the record before the first
+// rebuild, which every sidecar writes at its start when there is none.
+const WRITTEN = ['idle', 'running', 'done', 'failed'];
 
 /**
  * The state of the rebuilds in `dir`:
  *
+ *   ensure()        writes the idle record when there is no state file
  *   read()          what GET /api/reindex reports: { state, startedAt,
  *                   finishedAt, entries, message }, with state one of idle,
  *                   running, done, failed
- *   start()         a rebuild starts here; rejects when the state cannot be
- *                   written
+ *   start()         a rebuild starts here; resolves with its startedAt,
+ *                   rejects when the state cannot be written
  *   finish(entries) it is done, with that many entries
  *   fail(message)   it failed
  */
@@ -104,7 +106,7 @@ export function createReindexState({
           // Another sidecar may have started the next rebuild meanwhile: its
           // record is not replaced by the end of this one.
           const onDisk = await readRecord();
-          if (onDisk === null || isRecordOf(onDisk, ended)) {
+          if (onDisk === null || onDisk.state === 'idle' || isRecordOf(onDisk, ended)) {
             await write(ended);
             console.log('The end of the rebuild is written.');
           } else {
@@ -165,6 +167,7 @@ export function createReindexState({
     if (!state || typeof state !== 'object' || Array.isArray(state) || !WRITTEN.includes(state.state)) {
       return unusable('is not a state this version writes');
     }
+    if (state.state === 'idle') return { state: 'idle' };
     // The rebuild of this sidecar has ended, and the end is not written yet.
     const ownEnd = current && current.state !== 'running' && state.state === 'running' && isRecordOf(state, current);
     if (ownEnd) return report(current);
@@ -174,6 +177,28 @@ export function createReindexState({
       return { ...report(state), state: 'failed', message: STOPPED };
     }
     return report(state);
+  }
+
+  /**
+   * Writes the idle record when there is no state file yet, and leaves one
+   * that is there as it is. Every sidecar does it at its start: on a
+   * network volume a client that has looked for a file that was not there
+   * may go on taking it for absent for a while after another client has
+   * created it, and would report the first rebuild as idle. A file that has
+   * been there since the start is seen as it changes.
+   */
+  async function ensure() {
+    const tmp = `${path()}.${host}-${pid}.tmp`;
+    try {
+      await writeText(tmp, JSON.stringify({ state: 'idle' }));
+      // link() fails when the name exists, on a network volume as well: of
+      // sidecars that start at once, one writes the record.
+      await link(tmp, path());
+    } catch (err) {
+      if (err.code !== 'EEXIST') throw err;
+    } finally {
+      await rm(tmp, { force: true });
+    }
   }
 
   /** A rebuild starts here: writes `running`, and again every `heartbeatMs`. */
@@ -186,9 +211,11 @@ export function createReindexState({
     await write(current);
     heartbeat = setInterval(beat, heartbeatMs);
     heartbeat.unref();
+    return at;
   }
 
   return {
+    ensure,
     read,
     start,
     finish: (entries) => end({ state: 'done', entries }),

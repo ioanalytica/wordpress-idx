@@ -115,6 +115,23 @@ describe('createIndexFollower()', () => {
     assert.equal((await follower.check()).size, 1, 'a file that can be loaded is loaded again');
   });
 
+  test('tries a file again whose load failed for a reason other than its content', async () => {
+    let failures = 1;
+    follower = follow({
+      load: async (file) => {
+        loads++;
+        if (failures-- > 0) throw Object.assign(new Error('EIO: i/o error, read'), { code: 'EIO' });
+        return loadIndexFile(file);
+      },
+    });
+    const before = served;
+    write(SAMPLE_ENTRIES.slice(0, 2));
+    assert.equal(await follower.check(), before, 'the failed load keeps the served index');
+    const index = await follower.check();
+    assert.equal(index.size, 2, 'the next check loads the same file');
+    assert.equal(loads, 2);
+  });
+
   test('keeps the served index when the file has a format this version does not read', async () => {
     const before = served;
     write(SAMPLE_ENTRIES.slice(0, 1));

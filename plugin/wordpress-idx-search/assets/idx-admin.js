@@ -14,6 +14,12 @@
     // Calls in a row that may fail (a replica restarting, a proxy hiccup)
     // before the page gives up asking.
     var MAX_ERRORS = 3;
+    // How long the page goes on asking while the answer does not name the
+    // rebuild it started. With several replicas the poll can reach another
+    // one than the rebuild runs in, and on a network volume that replica may
+    // see the state of the rebuild only after a while; until then it reports
+    // the one before, or none.
+    var UNSEEN_MS = 90000;
 
     /** Calls an admin-ajax action of the plugin and resolves with its JSON. */
     function ajax(action) {
@@ -52,6 +58,15 @@
     }
 
     var errors = 0;
+    // The rebuild this page started: its startedAt, and when the page sent it.
+    var since = null;
+    var sentAt = 0;
+
+    /** Whether a state is that of the rebuild this page started, or a later one. */
+    function ours(data) {
+        if (!since) return true;
+        return Boolean(data.startedAt) && data.startedAt >= since;
+    }
 
     /** A call failed: asks again, until MAX_ERRORS calls in a row have failed. */
     function failedCall(reason) {
@@ -69,11 +84,15 @@
                     return;
                 }
                 errors = 0;
-                var state = resp.data && resp.data.state;
-                if (state === 'running') setTimeout(poll, POLL_MS);
-                else if (state === 'done') done(resp.data.entries);
-                else if (state === 'failed') fail(resp.data.message);
-                else fail(state);
+                var data = resp.data || {};
+                if (data.state === 'running') setTimeout(poll, POLL_MS);
+                else if (!ours(data)) {
+                    if (Date.now() - sentAt < UNSEEN_MS)
+                        setTimeout(poll, POLL_MS);
+                    else fail(cfg.reindexUnseen);
+                } else if (data.state === 'done') done(data.entries);
+                else if (data.state === 'failed') fail(data.message);
+                else fail(data.state);
             })
             .catch(function (err) {
                 failedCall(err.message);
@@ -83,6 +102,8 @@
     btn.addEventListener('click', function () {
         btn.disabled = true;
         errors = 0;
+        since = null;
+        sentAt = Date.now();
         statusEl.textContent = cfg.reindexRun || 'Reindex running…';
         statusEl.style.color = '';
 
@@ -91,7 +112,10 @@
                 if (!resp.success) fail(resp.data);
                 else if (resp.data && resp.data.state === 'done')
                     done(resp.data.entries);
-                else setTimeout(poll, POLL_MS);
+                else {
+                    since = (resp.data && resp.data.startedAt) || null;
+                    setTimeout(poll, POLL_MS);
+                }
             })
             .catch(function (err) {
                 fail(err.message);
