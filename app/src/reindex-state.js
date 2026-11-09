@@ -10,7 +10,9 @@
 // While a rebuild runs, its sidecar writes the state again every few seconds.
 // A state that says "running" and has not been written for a minute belongs
 // to a sidecar that ended or was restarted during the rebuild, and is
-// reported as failed.
+// reported as failed. The end of a rebuild that cannot be written is tried
+// again at the same pace until it is written, and the sidecar that ran the
+// rebuild reports that end in the meantime.
 import { readFile, rename, rm, writeFile } from 'node:fs/promises';
 import { hostname } from 'node:os';
 import { join } from 'node:path';
@@ -42,17 +44,19 @@ export function createReindexState({
   now = () => Date.now(),
   heartbeatMs = HEARTBEAT_MS,
   staleMs = STALE_MS,
+  writeText = writeFile,
 } = {}) {
   const path = () => join(dir, STATE_FILE);
   let current = null;
   let heartbeat = null;
+  let retry = null;
   let writing = Promise.resolve();
 
   /** Writes `state` under a name of its own, then gives it the file's name. */
   async function writeNow(state) {
     const tmp = `${path()}.${host}-${pid}.tmp`;
     try {
-      await writeFile(tmp, JSON.stringify(state));
+      await writeText(tmp, JSON.stringify(state));
       await rename(tmp, path());
     } catch (err) {
       await rm(tmp, { force: true });
@@ -76,7 +80,12 @@ export function createReindexState({
     write(current).catch((err) => console.warn(`The state of the rebuild cannot be written: ${err.message}`));
   }
 
-  /** Ends the rebuild with `fields` and writes it; a failed write is logged. */
+  /**
+   * Ends the rebuild with `fields` and writes it. A write that fails is
+   * tried again every `heartbeatMs` until it succeeds or the next rebuild
+   * starts: without it, the file would keep saying "running" and go stale,
+   * and every sidecar would report a rebuild that succeeded as failed.
+   */
   async function end(fields) {
     clearInterval(heartbeat);
     heartbeat = null;
@@ -85,8 +94,25 @@ export function createReindexState({
     try {
       await write(current);
     } catch (err) {
-      console.warn(`The state of the rebuild cannot be written: ${err.message}`);
+      console.warn(`The end of the rebuild cannot be written (${err.message}); trying again.`);
+      const ended = current;
+      retry = setInterval(() => {
+        write(ended).then(
+          () => {
+            clearInterval(retry);
+            retry = null;
+            console.log('The end of the rebuild is written.');
+          },
+          () => {},
+        );
+      }, heartbeatMs);
+      retry.unref();
     }
+  }
+
+  /** What GET reports of a state as it is written. */
+  function report({ state, startedAt = null, finishedAt = null, entries = null, message = null }) {
+    return { state, startedAt, finishedAt, entries, message };
   }
 
   /** A state file that cannot be used: failed, which does not block the next rebuild. */
@@ -112,16 +138,26 @@ export function createReindexState({
     if (!state || typeof state !== 'object' || Array.isArray(state) || !WRITTEN.includes(state.state)) {
       return unusable('is not a state this version writes');
     }
-    const { startedAt = null, finishedAt = null, entries = null, message = null } = state;
-    const report = { state: state.state, startedAt, finishedAt, entries, message };
+    // The rebuild of this sidecar has ended, and the end is not written yet.
+    const ownEnd =
+      current &&
+      current.state !== 'running' &&
+      state.state === 'running' &&
+      state.host === host &&
+      state.pid === pid &&
+      state.startedAt === current.startedAt;
+    if (ownEnd) return report(current);
     if (state.state === 'running' && !(now() - Date.parse(state.updatedAt) <= staleMs)) {
-      return { ...report, state: 'failed', message: STOPPED };
+      return { ...report(state), state: 'failed', message: STOPPED };
     }
-    return report;
+    return report(state);
   }
 
   /** A rebuild starts here: writes `running`, and again every `heartbeatMs`. */
   async function start() {
+    // The end of the rebuild before, if it is still being tried, is past.
+    clearInterval(retry);
+    retry = null;
     const at = new Date(now()).toISOString();
     current = { state: 'running', startedAt: at, updatedAt: at, finishedAt: null, entries: null, message: null, host, pid };
     await write(current);

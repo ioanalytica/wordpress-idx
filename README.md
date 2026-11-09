@@ -173,7 +173,7 @@ The state of the last rebuild, with the same authentication and the same 401 and
 { "state": "done", "startedAt": "2026-11-09T15:00:00.000Z", "finishedAt": "2026-11-09T15:04:51.000Z", "entries": 62000, "message": null }
 ```
 
-`state` is `idle` before the first rebuild (the other fields are then absent), `running`, `done` with `entries`, or `failed` with `message`. The state is kept in `DATA_DIR` (`reindex-state.json`), so every sidecar on the same volume reports it, whichever ran the rebuild. A running rebuild writes it again every 10 seconds; one that has not for a minute is reported as failed, since its sidecar ended or was restarted.
+`state` is `idle` before the first rebuild (the other fields are then absent), `running`, `done` with `entries`, or `failed` with `message`. The state is kept in `DATA_DIR` (`reindex-state.json`), so every sidecar on the same volume reports it, whichever ran the rebuild. A running rebuild writes it again every 10 seconds; one that has not for a minute is reported as failed, since its sidecar ended or was restarted. When the end of a rebuild cannot be written, its sidecar tries again at the same pace and reports that end itself in the meantime.
 
 With several sidecars on one volume, the sidecar that gets the call rebuilds; the others load the new index file within `RELOAD_INTERVAL`, see [Several sidecars on one volume](#several-sidecars-on-one-volume).
 

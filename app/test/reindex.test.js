@@ -1,6 +1,7 @@
 import { test, describe, before, after, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { setTimeout as sleep } from 'node:timers/promises';
@@ -236,6 +237,29 @@ describe('rebuilds and their state', () => {
     assert.equal(state.state, 'failed');
     assert.match(state.message, /ended or was restarted/);
     assert.equal((await call(s, 'POST')).status, 200);
+  });
+
+  test('an end that cannot be written is reported by its sidecar, and written once it can be', async () => {
+    let broken = false;
+    const writeText = async (file, text) => {
+      if (broken) throw new Error('no space left on device');
+      return writeFile(file, text);
+    };
+    const own = createReindexState({ dir, host: 'pod-a', heartbeatMs: 5, writeText });
+    const other = createReindexState({ dir, host: 'pod-b' });
+    await own.start();
+    broken = true;
+    await own.finish(4);
+
+    assert.equal((await own.read()).state, 'done', 'the sidecar that ran the rebuild knows its end');
+    assert.equal((await own.read()).entries, 4);
+    assert.equal((await other.read()).state, 'running', 'the file still says running');
+
+    broken = false;
+    for (let i = 0; i < 100 && (await other.read()).state === 'running'; i++) await sleep(5);
+    const state = await other.read();
+    assert.equal(state.state, 'done');
+    assert.equal(state.entries, 4);
   });
 
   test('a running rebuild writes its state again, so that it does not go stale', async () => {
