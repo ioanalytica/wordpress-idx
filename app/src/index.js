@@ -92,8 +92,10 @@ const follower = createIndexFollower({
   activate: activateIndex,
 });
 
-// After a reindex: the file that was just written. The follower may have
-// loaded it already, or a file that another sidecar wrote since.
+/**
+ * After a reindex: the file that was just written. The follower may have
+ * loaded it already, or a file that another sidecar wrote since.
+ */
 async function loadIndex() {
   try {
     const index = await follower.check({ required: true });

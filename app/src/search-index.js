@@ -179,7 +179,7 @@ export class SearchIndex {
   constructor({ header, records, recordLengths, meta, fields, file = null }) {
     /** Number of entries. */
     this.size = header.entries;
-    /** The file the index was loaded from: dev, ino, size, mtimeMs. */
+    /** The file the index was loaded from: dev, ino, size, mtimeNs, as BigInts. */
     this.file = file;
     /** Bytes the index holds in memory outside the JavaScript heap. */
     this.bytes = records.length;
@@ -282,8 +282,10 @@ export async function loadIndexFile(path) {
   const file = await open(path, 'r');
   try {
     // Which file this is: index-follower.js compares it with the file at
-    // `path` to tell whether another sidecar has replaced it since.
-    const { dev, ino, size, mtimeMs } = await file.stat();
+    // `path` to tell whether another sidecar has replaced it since. As
+    // BigInts: a 64-bit inode number can be larger than a Number holds
+    // exactly.
+    const { dev, ino, size, mtimeNs } = await file.stat({ bigint: true });
     const header = await readHeader(file);
     const fields = {};
     for (const field of INDEX_FIELDS) {
@@ -301,7 +303,7 @@ export async function loadIndexFile(path) {
       recordLengths: await readSection(file, header.recordLengths),
       meta: await readSection(file, header.meta),
       fields,
-      file: { dev, ino, size, mtimeMs },
+      file: { dev, ino, size, mtimeNs },
     });
   } finally {
     await file.close();

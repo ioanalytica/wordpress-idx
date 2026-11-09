@@ -19,8 +19,10 @@ function defaultPluginSrc() {
   return candidates.find(existsSync) || candidates[0];
 }
 
-// A number of seconds from the environment: `fallback` when it is unset or
-// not a number of 0 or more.
+/**
+ * A number of seconds from the environment: `fallback` when it is unset or
+ * not a number of 0 or more.
+ */
 function seconds(value, fallback) {
   const n = Number.parseInt(value, 10);
   return Number.isNaN(n) || n < 0 ? fallback : n;

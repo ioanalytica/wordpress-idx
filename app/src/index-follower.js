@@ -14,21 +14,26 @@ import { stat as statFile } from 'node:fs/promises';
 import { INDEX_FORMAT } from './index-format.js';
 import { loadIndexFile } from './search-index.js';
 
-/** Whether `stats` describe the file that `file` (SearchIndex#file) names. */
+/**
+ * Whether `stats` (of a stat with `bigint: true`) describe the file that
+ * `file` (SearchIndex#file) names.
+ */
 export function sameFile(file, stats) {
   return (
     Boolean(file) &&
     file.dev === stats.dev &&
     file.ino === stats.ino &&
     file.size === stats.size &&
-    file.mtimeMs === stats.mtimeMs
+    file.mtimeNs === stats.mtimeNs
   );
 }
 
-function identity({ dev, ino, size, mtimeMs }) {
-  return { dev, ino, size, mtimeMs };
+/** What sameFile() compares, taken from `stats`. */
+function identity({ dev, ino, size, mtimeNs }) {
+  return { dev, ino, size, mtimeNs };
 }
 
+/** Why a file could not be loaded, for the log. */
 function reason(err) {
   if (err.format !== undefined) return `it has format ${err.format}, this version reads format ${INDEX_FORMAT}`;
   return err.message;
@@ -64,16 +69,18 @@ export function createIndexFollower({
   let timer = null;
   let ticking = null;
 
+  /** Warns with `message`, unless it was the last thing said. */
   function tell(message) {
     if (message !== said) warn(message);
     said = message;
   }
 
+  /** One check, see check(). */
   async function sync(required) {
     const current = served();
     let stats;
     try {
-      stats = await stat(path);
+      stats = await stat(path, { bigint: true });
     } catch (err) {
       if (required) throw err;
       tell(`Index file ${path} cannot be read (${err.message}); the index loaded before is served.`);
@@ -98,12 +105,14 @@ export function createIndexFollower({
     return index;
   }
 
+  /** Queues a check behind the one that runs, if any. */
   function check({ required = false } = {}) {
     const run = queue.then(() => sync(required));
     queue = run.catch(() => {});
     return run;
   }
 
+  /** Checks every `intervalMs`; does nothing for 0, or when it checks already. */
   function start(intervalMs) {
     if (timer || !(intervalMs > 0)) return;
     timer = setInterval(() => {
@@ -119,6 +128,7 @@ export function createIndexFollower({
     timer.unref();
   }
 
+  /** Ends the checks that start() began. */
   function stop() {
     clearInterval(timer);
     timer = null;

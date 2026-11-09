@@ -20,20 +20,23 @@ describe('createIndexFollower()', () => {
   let messages;
   let follower;
 
-  // Writes an index file as a build does: under a name of its own, which it
-  // gets when it is complete.
+  /**
+   * Writes an index file as a build does: under a name of its own, which it
+   * gets when it is complete.
+   */
   function write(entries) {
     const writer = new IndexWriter(path);
     writer.add(entries);
     writer.finish();
   }
 
-  // Puts something that is not an index in the place of the file.
+  /** Puts something that is not an index in the place of the file. */
   function writeJunk() {
     writeFileSync(`${path}.junk`, 'not an index');
     renameSync(`${path}.junk`, path);
   }
 
+  /** A follower of the file that counts its loads and keeps what it says. */
   function follow(options = {}) {
     return createIndexFollower({
       path,
@@ -66,10 +69,9 @@ describe('createIndexFollower()', () => {
     rmSync(dir, { recursive: true, force: true });
   });
 
-  test('an index knows the file it was loaded from', () => {
-    assert.equal(typeof served.file.ino, 'number');
-    assert.equal(typeof served.file.mtimeMs, 'number');
-    assert.equal(served.file.size > 0, true);
+  test('an index knows the file it was loaded from, exactly', () => {
+    for (const key of ['dev', 'ino', 'size', 'mtimeNs']) assert.equal(typeof served.file[key], 'bigint', key);
+    assert.equal(served.file.size > 0n, true);
   });
 
   test('leaves the served index alone while the file is the one it came from', async () => {
