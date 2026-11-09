@@ -15,6 +15,7 @@
     // before the page gives up asking.
     var MAX_ERRORS = 3;
 
+    /** Calls an admin-ajax action of the plugin and resolves with its JSON. */
     function ajax(action) {
         var body = new FormData();
         body.append('action', action);
@@ -26,12 +27,14 @@
         );
     }
 
+    /** Shows how the rebuild ended and lets the button be pressed again. */
     function finish(text, color) {
         statusEl.textContent = text;
         statusEl.style.color = color;
         btn.disabled = false;
     }
 
+    /** The rebuild is done, with that many entries. */
     function done(entries) {
         var msg = (cfg.reindexDone || 'Done – %s entries indexed.').replace(
             '%s',
@@ -40,6 +43,7 @@
         finish(msg, '#0a7b2e');
     }
 
+    /** The rebuild failed, or its state could not be learned. */
     function fail(reason) {
         finish(
             (cfg.reindexError || 'Error: ') + (reason || 'Unknown'),
@@ -49,12 +53,14 @@
 
     var errors = 0;
 
+    /** A call failed: asks again, until MAX_ERRORS calls in a row have failed. */
     function failedCall(reason) {
         errors++;
         if (errors >= MAX_ERRORS) fail(reason);
         else setTimeout(poll, POLL_MS);
     }
 
+    /** Asks for the state of the rebuild, again until it has ended. */
     function poll() {
         ajax('idx_reindex_status')
             .then(function (resp) {

@@ -526,6 +526,9 @@ class WordpressIdxSearch {
 		<?php
 	}
 
+	/**
+	 * Admin-ajax `idx_reindex`: starts a rebuild, see start_reindex().
+	 */
 	public function ajax_reindex() {
 		check_ajax_referer( 'idx_reindex' );
 
@@ -540,6 +543,10 @@ class WordpressIdxSearch {
 		wp_send_json_success( $result );
 	}
 
+	/**
+	 * Admin-ajax `idx_reindex_status`: the state of the last rebuild, see
+	 * reindex_status(). The settings page asks it until the rebuild ends.
+	 */
 	public function ajax_reindex_status() {
 		check_ajax_referer( 'idx_reindex' );
 

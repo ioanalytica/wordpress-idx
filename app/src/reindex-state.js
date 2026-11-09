@@ -21,6 +21,9 @@ export const STALE_MS = 60 * 1000;
 
 const STOPPED = 'The rebuild stopped without finishing: the sidecar that ran it ended or was restarted.';
 
+// The states a sidecar writes; `idle` is what there is before the first.
+const WRITTEN = ['running', 'done', 'failed'];
+
 /**
  * The state of the rebuilds in `dir`:
  *
@@ -86,12 +89,28 @@ export function createReindexState({
     }
   }
 
+  /** A state file that cannot be used: failed, which does not block the next rebuild. */
+  function unusable(why) {
+    return { state: 'failed', startedAt: null, finishedAt: null, entries: null, message: `The state of the last rebuild ${why}.` };
+  }
+
+  /** The state of the last rebuild, as GET /api/reindex reports it. */
   async function read() {
+    let text;
+    try {
+      text = await readFile(path(), 'utf8');
+    } catch (err) {
+      if (err.code === 'ENOENT') return { state: 'idle' };
+      return unusable(`cannot be read (${err.message})`);
+    }
     let state;
     try {
-      state = JSON.parse(await readFile(path(), 'utf8'));
+      state = JSON.parse(text);
     } catch {
-      return { state: 'idle' };
+      return unusable('cannot be parsed');
+    }
+    if (!state || typeof state !== 'object' || Array.isArray(state) || !WRITTEN.includes(state.state)) {
+      return unusable('is not a state this version writes');
     }
     const { startedAt = null, finishedAt = null, entries = null, message = null } = state;
     const report = { state: state.state, startedAt, finishedAt, entries, message };
@@ -101,6 +120,7 @@ export function createReindexState({
     return report;
   }
 
+  /** A rebuild starts here: writes `running`, and again every `heartbeatMs`. */
   async function start() {
     const at = new Date(now()).toISOString();
     current = { state: 'running', startedAt: at, updatedAt: at, finishedAt: null, entries: null, message: null, host, pid };

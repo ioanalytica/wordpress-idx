@@ -54,14 +54,19 @@ export function createReindexRouter(
   router.post('/api/reindex', async (req, res) => {
     if (!authorized(req, res)) return;
 
-    // A rebuild of this sidecar, or of another one on the same volume.
-    // Two calls at the same moment to two sidecars can both start one: this
-    // is no lock, and two rebuilds at once do no harm.
-    if (reindexing || (await state.read()).state === 'running') {
+    // A rebuild of this sidecar: the flag is set before anything is awaited,
+    // so that two calls at once do not both start one here.
+    if (reindexing) return res.status(409).json({ error: 'Reindex already in progress.' });
+    reindexing = true;
+
+    // A rebuild of another sidecar on the same volume. Two calls at the same
+    // moment to two sidecars can both start one: this is no lock, and two
+    // rebuilds at once do no harm.
+    if ((await state.read()).state === 'running') {
+      reindexing = false;
       return res.status(409).json({ error: 'Reindex already in progress.' });
     }
 
-    reindexing = true;
     try {
       await state.start();
     } catch (err) {

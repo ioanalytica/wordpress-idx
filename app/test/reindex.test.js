@@ -1,6 +1,6 @@
 import { test, describe, before, after, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { setTimeout as sleep } from 'node:timers/promises';
@@ -183,6 +183,47 @@ describe('rebuilds and their state', () => {
     g.open();
     assert.equal((await settled(b)).state, 'done');
     assert.equal((await call(b, 'POST')).status, 200, 'once it is done, another one may start');
+  });
+
+  test('two calls at once to one sidecar start one rebuild', async () => {
+    const g = gate();
+    let builds = 0;
+    const s = await sidecar({
+      build: () => {
+        builds++;
+        return g.build();
+      },
+    });
+    const statuses = (
+      await Promise.all([call(s, 'POST', { prefer: 'respond-async' }), call(s, 'POST', { prefer: 'respond-async' })])
+    ).map((r) => r.status);
+    assert.deepEqual(statuses.sort(), [202, 409]);
+    g.open();
+    assert.equal((await settled(s)).state, 'done');
+    assert.equal(builds, 1);
+  });
+
+  for (const [what, content] of [
+    ['cannot be parsed', '{"state": "runn'],
+    ['is not a state this version writes', 'null'],
+    ['is not a state this version writes', '["running"]'],
+    ['is not a state this version writes', '{"state": "paused"}'],
+  ]) {
+    test(`a state file that ${what} (${content}) is reported failed and does not block the next one`, async () => {
+      writeFileSync(join(dir, STATE_FILE), content);
+      const s = await sidecar();
+      const state = (await call(s, 'GET')).body;
+      assert.equal(state.state, 'failed');
+      assert.equal(state.message, `The state of the last rebuild ${what}.`);
+      assert.equal((await call(s, 'POST')).status, 200);
+    });
+  }
+
+  test('a state file that cannot be read is reported failed, not idle', async () => {
+    mkdirSync(join(dir, STATE_FILE));
+    const state = await createReindexState({ dir }).read();
+    assert.equal(state.state, 'failed');
+    assert.match(state.message, /cannot be read \(EISDIR/);
   });
 
   test('a rebuild whose sidecar stopped is reported failed and does not block the next one', async () => {

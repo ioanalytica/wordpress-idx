@@ -24,8 +24,10 @@ function processRuns(pid) {
     process.kill(pid, 0);
     return true;
   } catch (err) {
-    // EPERM: it runs, under another user.
-    return err.code === 'EPERM';
+    // Only ESRCH says that no such process exists. EPERM means it runs under
+    // another user; any other error leaves the answer open, and a file is
+    // not removed on an open answer.
+    return err.code !== 'ESRCH';
   }
 }
 
@@ -68,10 +70,10 @@ export async function readIndexFile(dir = config.dataDir) {
 
 /**
  * Removes the unfinished files of builds that died: at once when the build
- * ran on this host and its process is gone, else once the file is an hour
- * old. A build on another host, a sidecar of another replica on the same
- * volume, may still be writing its file, and its process cannot be seen
- * from here. On this host the process ID decides: in a container that
+ * ran on this host and its process is gone, and in any case once the file is
+ * an hour old. A build on another host, a sidecar of another replica on the
+ * same volume, may still be writing its file, and its process cannot be seen
+ * from here. On this host the process ID decides first: in a container that
  * restarted, the processes of the one before are gone; two services on one
  * machine see each other's processes. A process ID that is in use again
  * keeps the file until the hour is over.
@@ -83,7 +85,7 @@ export function removeDeadBuilds(dir, { host = hostname(), runs = processRuns, n
     if (!match) continue;
     const path = join(dir, name);
     try {
-      const dead = match[1] === host ? !runs(Number(match[2])) : now - statSync(path).mtimeMs > STALE_TMP_MS;
+      const dead = (match[1] === host && !runs(Number(match[2]))) || now - statSync(path).mtimeMs > STALE_TMP_MS;
       if (!dead) continue;
       rmSync(path, { force: true });
       removed.push(name);
@@ -95,9 +97,11 @@ export function removeDeadBuilds(dir, { host = hostname(), runs = processRuns, n
   return removed;
 }
 
+/**
+ * Removes the files of formats 1 and 2: this version does not read them, and
+ * they hold what was public when they were written.
+ */
 function removeLegacyFiles(dir) {
-  // The files of formats 1 and 2: this version does not read them, and they
-  // hold what was public when they were written.
   for (const name of LEGACY_FILES) {
     const path = join(dir, name);
     if (!exists(path)) continue;

@@ -214,6 +214,8 @@ describe('the index file', () => {
         deadHere: `${INDEX_FILE}.pod-a-7.tmp`,
         deadHereRuns: `${INDEX_FILE}.pod-a-7.runs.tmp`,
         runningHere: `${INDEX_FILE}.pod-a-8.tmp`,
+        // Its process ID is in use again, by another process.
+        oldRunningHere: `${INDEX_FILE}.pod-a-9.tmp`,
         recentElsewhere: `${INDEX_FILE}.pod-b-7.tmp`,
         oldElsewhere: `${INDEX_FILE}.pod-b-9.runs.tmp`,
         index: INDEX_FILE,
@@ -221,13 +223,24 @@ describe('the index file', () => {
       };
       for (const name of Object.values(names)) writeFileSync(join(dir, name), 'x');
       const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000);
-      utimesSync(join(dir, names.oldElsewhere), twoHoursAgo, twoHoursAgo);
-      // An old file of a build on this host stays while its process runs.
-      utimesSync(join(dir, names.runningHere), twoHoursAgo, twoHoursAgo);
+      for (const name of [names.oldElsewhere, names.oldRunningHere]) utimesSync(join(dir, name), twoHoursAgo, twoHoursAgo);
 
-      const removed = removeDeadBuilds(dir, { host: 'pod-a', runs: (pid) => pid === 8 });
-      assert.deepEqual(removed.sort(), [names.deadHere, names.deadHereRuns, names.oldElsewhere].sort());
+      const removed = removeDeadBuilds(dir, { host: 'pod-a', runs: (pid) => pid === 8 || pid === 9 });
+      assert.deepEqual(
+        removed.sort(),
+        [names.deadHere, names.deadHereRuns, names.oldRunningHere, names.oldElsewhere].sort(),
+      );
       assert.deepEqual(readdirSync(dir).sort(), [names.index, names.other, names.recentElsewhere, names.runningHere].sort());
+    });
+
+    test('keeps a file of this host unless the system says that its process does not exist', () => {
+      // Process 1 runs, under another user (EPERM) unless the test runs as
+      // root; a process ID too large for kill() gets an error that is not
+      // ESRCH. Neither proves that the build is gone.
+      const names = [`${INDEX_FILE}.${hostname()}-1.tmp`, `${INDEX_FILE}.${hostname()}-99999999999.tmp`];
+      for (const name of names) writeFileSync(join(dir, name), 'x');
+      assert.deepEqual(removeDeadBuilds(dir), []);
+      assert.deepEqual(readdirSync(dir).sort(), names.sort());
     });
 
     test('says nothing when there is nothing to remove', () => {
