@@ -192,8 +192,9 @@ describe('start with an index file of an earlier format', { skip: SKIP }, () => 
     assert.deepEqual(all.results.map((r) => r.id), [1]);
     assert.equal((await search(service, 'hello')).total, 1);
 
-    // The index is in this version's file, and the old file is gone.
-    assert.deepEqual(readdirSync(dataDir), ['wp-index.bin']);
+    // The index is in this version's file, and the old file is gone. The
+    // state of the rebuilds is written at every start (reindex-state.js).
+    assert.deepEqual(readdirSync(dataDir).sort(), ['reindex-state.json', 'wp-index.bin']);
     assert.match(service.output, /it will be rebuilt/);
   });
 });

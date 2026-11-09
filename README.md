@@ -157,7 +157,7 @@ The call answers when the rebuild is done. On a large site that takes minutes, l
 | Status | Meaning |
 |---|---|
 | 200 | Reindex complete, returns `{ "status": "ok", "entries": 1695 }` |
-| 202 | With `Prefer: respond-async`: the rebuild has started, returns `{ "status": "running" }` and the header `Preference-Applied: respond-async` |
+| 202 | With `Prefer: respond-async`: the rebuild has started, returns `{ "status": "running", "startedAt": "…" }` and the header `Preference-Applied: respond-async`. `GET /api/reindex` reports this rebuild under the same `startedAt` |
 | 401 | Invalid or missing API key |
 | 409 | Reindex already in progress, in this sidecar or in another one on the same volume |
 | 500 | Reindex failed, returns `{ "error": "Reindex failed", "message": "…" }` |
@@ -173,7 +173,7 @@ The state of the last rebuild, with the same authentication and the same 401 and
 { "state": "done", "startedAt": "2026-11-09T15:00:00.000Z", "finishedAt": "2026-11-09T15:04:51.000Z", "entries": 62000, "message": null }
 ```
 
-`state` is `idle` before the first rebuild (the other fields are then absent), `running`, `done` with `entries`, or `failed` with `message`. The state is kept in `DATA_DIR` (`reindex-state.json`), so every sidecar on the same volume reports it, whichever ran the rebuild. A running rebuild writes it again every 10 seconds; one that has not for a minute is reported as failed, since its sidecar ended or was restarted. When the end of a rebuild cannot be written, its sidecar tries again at the same pace, as long as no other rebuild has started since, and reports that end itself in the meantime.
+`state` is `idle` before the first rebuild (the other fields are then absent), `running`, `done` with `entries`, or `failed` with `message`. The state is kept in `DATA_DIR` (`reindex-state.json`), so every sidecar on the same volume reports it, whichever ran the rebuild. Every sidecar writes the file at its start when there is none, as `idle`: on a network volume a client that once found a file absent may go on taking it for absent for a while after another one has created it. A caller that started a rebuild waits for the state with its `startedAt`; another replica may report the rebuild before for a few seconds. A running rebuild writes it again every 10 seconds; one that has not for a minute is reported as failed, since its sidecar ended or was restarted. When the end of a rebuild cannot be written, its sidecar tries again at the same pace, as long as no other rebuild has started since, and reports that end itself in the meantime.
 
 With several sidecars on one volume, the sidecar that gets the call rebuilds; the others load the new index file within `RELOAD_INTERVAL`, see [Several sidecars on one volume](#several-sidecars-on-one-volume).
 

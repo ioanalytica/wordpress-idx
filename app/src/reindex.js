@@ -75,8 +75,9 @@ export function createReindexRouter(
       return res.status(409).json({ error: 'Reindex already in progress.' });
     }
 
+    let startedAt;
     try {
-      await state.start();
+      startedAt = await state.start();
     } catch (err) {
       reindexing = false;
       console.error('Reindex not started:', err.message);
@@ -87,7 +88,9 @@ export function createReindexRouter(
     // Prefer: respond-async answers at once; GET /api/reindex reports the end.
     if (/\brespond-async\b/i.test(req.headers.prefer || '')) {
       running.catch(() => {});
-      return res.status(202).set('Preference-Applied', 'respond-async').json({ status: 'running' });
+      // startedAt names this rebuild in what GET /api/reindex reports, so a
+      // caller can tell it from the one before.
+      return res.status(202).set('Preference-Applied', 'respond-async').json({ status: 'running', startedAt });
     }
     try {
       res.json({ status: 'ok', entries: await running });

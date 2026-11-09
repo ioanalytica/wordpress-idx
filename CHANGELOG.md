@@ -3,6 +3,25 @@
 What changed in each version of wordpress-idx. The sidecar and the WordPress
 plugin share one version; the entry of a version is its release notes.
 
+## 1.3.11
+
+* **"Rebuild index" reports the first rebuild of a site with several
+  replicas.** The state of a rebuild is a file on the shared volume, and the
+  first rebuild created it. On a network volume another replica took the
+  file for absent for a while after that and reported no rebuild: when the
+  settings page asked that replica, it showed an error although the rebuild
+  ran and succeeded, and that replica also accepted a second rebuild. Every
+  sidecar now writes the file at its start when there is none. The answer
+  `202` to `Prefer: respond-async` names the rebuild by its `startedAt`, and
+  the settings page waits up to 90 seconds for the state of that rebuild
+  instead of taking the state of the one before, or none, for its end.
+* **A replaced index file whose load failed once is loaded at the next
+  check.** A sidecar remembered every index file it could not load and did
+  not try it again until it changed; after a failure that passes, such as an
+  I/O error on a network volume, it served the index before until the next
+  rebuild or a restart. It now remembers only a file whose content it cannot
+  read, such as one of another format (#54).
+
 ## 1.3.10
 
 * **Sidecars that share a volume serve the same index.** With several

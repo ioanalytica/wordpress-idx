@@ -44,7 +44,7 @@ Same filter params as `/api/search`; `limit` and `context` have no effect. Retur
 
 ### POST /api/reindex
 
-Rebuilds index from WordPress DB and answers when the rebuild is done. Auth: `Authorization: Bearer <key>` or `X-Api-Key: <key>`. Returns 200 `{ "status": "ok", "entries": N }`, 401 bad key, 409 already running (here or in another sidecar on the same volume), 500 rebuild failed, 503 key not configured. With `Prefer: respond-async` it answers 202 `{ "status": "running" }` at once and `GET /api/reindex` reports the end; use that on a large site, whose rebuild takes minutes.
+Rebuilds index from WordPress DB and answers when the rebuild is done. Auth: `Authorization: Bearer <key>` or `X-Api-Key: <key>`. Returns 200 `{ "status": "ok", "entries": N }`, 401 bad key, 409 already running (here or in another sidecar on the same volume), 500 rebuild failed, 503 key not configured. With `Prefer: respond-async` it answers 202 `{ "status": "running", "startedAt" }` at once and `GET /api/reindex` reports the end, under the same `startedAt`; use that on a large site, whose rebuild takes minutes.
 
 ### GET /api/reindex
 
