@@ -139,8 +139,22 @@ describe('rebuilds and their state', () => {
   });
 
   test('a rebuild that starts while ensure() runs is not disturbed by it', async () => {
-    const state = createReindexState({ dir, host: 'pod-a' });
-    const [, startedAt] = await Promise.all([state.ensure(), state.start()]);
+    // ensure() is held after it has written its temporary file, until the
+    // rebuild has written and renamed its own: the order in which a shared
+    // temporary file would be linked away or removed.
+    let release;
+    const held = new Promise((resolve) => {
+      release = resolve;
+    });
+    const writeText = async (file, text) => {
+      await writeFile(file, text);
+      if (JSON.parse(text).state === 'idle') await held;
+    };
+    const state = createReindexState({ dir, host: 'pod-a', writeText });
+    const ensured = state.ensure();
+    const startedAt = await state.start();
+    release();
+    await ensured;
     const read = await state.read();
     assert.equal(read.state, 'running');
     assert.equal(read.startedAt, startedAt);
