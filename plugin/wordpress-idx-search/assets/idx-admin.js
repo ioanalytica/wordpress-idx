@@ -92,7 +92,16 @@
                 if (!ours(data)) {
                     if (Date.now() - sentAt < UNSEEN_MS)
                         setTimeout(poll, POLL_MS);
-                    else fail(cfg.reindexUnseen);
+                    // A message without startedAt belongs to no rebuild: it
+                    // says why the state file cannot be used, which is the
+                    // cause to look at. That of an earlier rebuild is not.
+                    else
+                        fail(
+                            cfg.reindexUnseen +
+                                (!data.startedAt && data.message
+                                    ? ' ' + data.message
+                                    : ''),
+                        );
                 } else if (data.state === 'running') setTimeout(poll, POLL_MS);
                 else if (data.state === 'done') done(data.entries);
                 else if (data.state === 'failed') fail(data.message);
