@@ -3,7 +3,7 @@
 What changed in each version of wordpress-idx. The sidecar and the WordPress
 plugin share one version; the entry of a version is its release notes.
 
-## Unreleased
+## 1.3.10
 
 * **Sidecars that share a volume serve the same index.** With several
   replicas of WordPress, each with its sidecar on one ReadWriteMany volume, a
