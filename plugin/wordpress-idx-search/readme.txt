@@ -74,7 +74,7 @@ The search UI is available in German, English, French, and Spanish. The language
 
 = 1.3.10 =
 * "Rebuild index" starts the rebuild and asks the sidecar every three seconds how it ends, instead of waiting for the end in one call: on a large site, whose rebuild takes minutes, the settings page no longer reports an error for a rebuild that succeeds
-* A rebuild that runs in the sidecar of another replica is reported as well, and a second one is refused while it runs
+* A rebuild that runs in the sidecar of another replica is reported as well, and a rebuild asked for while one is seen running is refused; two asked for at the same moment from two replicas can both start
 
 = 1.3.9 =
 * No change in the plugin. Its sidecar builds and serves the index of a large site with a fraction of the memory, and keeps answering while "Rebuild index" runs
