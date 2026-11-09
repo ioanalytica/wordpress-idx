@@ -3,7 +3,7 @@
 What changed in each version of wordpress-idx. The sidecar and the WordPress
 plugin share one version; the entry of a version is its release notes.
 
-## Unreleased
+## 1.3.10
 
 * **Sidecars that share a volume serve the same index.** With several
   replicas of WordPress, each with its sidecar on one ReadWriteMany volume, a
@@ -36,9 +36,10 @@ plugin share one version; the entry of a version is its release notes.
   which the sidecar answers with `202` at once, and asks `GET /api/reindex`
   every three seconds how it ends. The sidecar keeps that state in
   `DATA_DIR` (`reindex-state.json`), so every sidecar on the same volume
-  reports it and refuses a second rebuild with `409`, whichever runs the
-  first. `POST /api/reindex` without the header answers as before, when the
-  rebuild is done.
+  reports it and refuses a rebuild with `409` while it sees one running,
+  whichever runs it. That is no lock: two calls at the same moment to two
+  sidecars can both start one. `POST /api/reindex` without the header
+  answers as before, when the rebuild is done.
 
 ## 1.3.9
 

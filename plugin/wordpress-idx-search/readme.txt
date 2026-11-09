@@ -3,7 +3,7 @@ Contributors: ioanalytica
 Tags: search, fulltext, full-text, flexsearch, idx
 Requires at least: 5.0
 Tested up to: 7.1
-Stable tag: 1.3.9
+Stable tag: 1.3.10
 Requires PHP: 7.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -50,7 +50,7 @@ It is a lightweight Node.js application that extracts your WordPress content, bu
 
 = How do I trigger a reindex? =
 
-Go to **Settings > IDX Search** in the WordPress admin. Enter your Reindex API key and click "Rebuild index". The sidecar will re-extract all content from the database and rebuild the search index.
+Go to **Settings > IDX Search** in the WordPress admin. Enter your Reindex API key and click "Rebuild index". The sidecar will re-extract all content from the database and rebuild the search index; the page shows how the rebuild ends, also when it takes minutes.
 
 = Can editors use the admin settings? =
 
@@ -71,6 +71,10 @@ The search UI is available in German, English, French, and Spanish. The language
 3. Admin settings page
 
 == Changelog ==
+
+= 1.3.10 =
+* "Rebuild index" starts the rebuild and asks the sidecar every three seconds how it ends, instead of waiting for the end in one call: on a large site, whose rebuild takes minutes, the settings page no longer reports an error for a rebuild that succeeds
+* A rebuild that runs in the sidecar of another replica is reported as well, and a rebuild asked for while one is seen running is refused; two asked for at the same moment from two replicas can both start
 
 = 1.3.9 =
 * No change in the plugin. Its sidecar builds and serves the index of a large site with a fraction of the memory, and keeps answering while "Rebuild index" runs
@@ -105,6 +109,9 @@ The search UI is available in German, English, French, and Spanish. The language
 * Admin settings for language, API key, and reindex
 
 == Upgrade Notice ==
+
+= 1.3.10 =
+"Rebuild index" reports the end of a long rebuild. Comes with sidecar 1.3.10, which several replicas on one volume share their index with.
 
 = 1.3.9 =
 No change in the plugin. Comes with sidecar 1.3.9, which rebuilds its index once at its first start.
