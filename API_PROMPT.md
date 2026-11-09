@@ -44,7 +44,11 @@ Same filter params as `/api/search`; `limit` and `context` have no effect. Retur
 
 ### POST /api/reindex
 
-Rebuilds index from WordPress DB and answers when the rebuild is done. Auth: `Authorization: Bearer <key>` or `X-Api-Key: <key>`. Returns 200 `{ "status": "ok", "entries": N }`, 401 bad key, 409 already running, 500 rebuild failed, 503 key not configured.
+Rebuilds index from WordPress DB and answers when the rebuild is done. Auth: `Authorization: Bearer <key>` or `X-Api-Key: <key>`. Returns 200 `{ "status": "ok", "entries": N }`, 401 bad key, 409 already running (here or in another sidecar on the same volume), 500 rebuild failed, 503 key not configured. With `Prefer: respond-async` it answers 202 `{ "status": "running" }` at once and `GET /api/reindex` reports the end; use that on a large site, whose rebuild takes minutes.
+
+### GET /api/reindex
+
+State of the last rebuild, from any sidecar on the same volume. Same auth and 401/503 as POST. Returns 200 `{ "state", "startedAt", "finishedAt", "entries", "message" }`: `state` is `idle` (none yet; then the other fields are absent), `running`, `done` (`entries` set) or `failed` (`message` set, also when the sidecar that ran it stopped).
 
 ### GET /readyz
 

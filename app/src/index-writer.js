@@ -162,6 +162,16 @@ function writeAll(fd, buf, offset, length, position) {
   }
 }
 
+/**
+ * The files a build in process `pid` on `host` writes next to the index file
+ * at `path`: the index file while it is written, and the intermediate
+ * results. indexer.js removes them when that build has died.
+ */
+export function buildFilePaths(path, pid = process.pid, host = hostname()) {
+  const base = `${path}.${host}-${pid}`;
+  return { tmpPath: `${base}.tmp`, runsPath: `${base}.runs.tmp` };
+}
+
 export class IndexWriter {
   /**
    * `path` is the index file. It is written under a name of its own and gets
@@ -170,8 +180,9 @@ export class IndexWriter {
    */
   constructor(path, { runChars = RUN_CHARS, runTerms = RUN_TERMS } = {}) {
     this.path = path;
-    this.tmpPath = `${path}.${hostname()}-${process.pid}.tmp`;
-    this.runsPath = `${path}.${hostname()}-${process.pid}.runs.tmp`;
+    const { tmpPath, runsPath } = buildFilePaths(path);
+    this.tmpPath = tmpPath;
+    this.runsPath = runsPath;
     this.runChars = runChars;
     this.runTerms = runTerms;
     this.fd = openSync(this.tmpPath, 'w+');

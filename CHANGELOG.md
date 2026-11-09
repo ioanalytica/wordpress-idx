@@ -17,6 +17,28 @@ plugin share one version; the entry of a version is its release notes.
   sidecar of another version wrote during a rolling update, leaves the index
   it serves in place. The README describes the behaviour under "Several
   sidecars on one volume".
+* **The files of a killed index build are removed.** A build whose process
+  was killed, by the kernel for memory or with its container, left its
+  unfinished files in `DATA_DIR`, and every new attempt added two more. Only
+  a build that succeeded removed them, and only once they were an hour old,
+  so on a volume with little room the sidecar could fail to build its index
+  for good. The service now removes the files of its build process when that
+  process ends without a result, and every build first removes what a build
+  on the same host left whose process is gone, and any build file that has
+  not been written for an hour. While a build runs, its service touches its
+  files every five minutes, so a sidecar of another replica on the same
+  volume does not remove them, however long the build takes.
+* **"Rebuild index" reports the end of a long rebuild.** The rebuild of a
+  large site takes minutes, and the call that started it waited for the end:
+  the plugin gave up after 120 seconds, a proxy usually after 60, and the
+  settings page showed an error although the rebuild went on and succeeded.
+  The plugin now starts the rebuild with the header `Prefer: respond-async`,
+  which the sidecar answers with `202` at once, and asks `GET /api/reindex`
+  every three seconds how it ends. The sidecar keeps that state in
+  `DATA_DIR` (`reindex-state.json`), so every sidecar on the same volume
+  reports it and refuses a second rebuild with `409`, whichever runs the
+  first. `POST /api/reindex` without the header answers as before, when the
+  rebuild is done.
 
 ## 1.3.9
 

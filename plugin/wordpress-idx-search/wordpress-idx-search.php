@@ -254,6 +254,7 @@ class WordpressIdxSearch {
 		add_action( 'admin_init', array( $this, 'register_settings' ) );
 		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_admin_assets' ) );
 		add_action( 'wp_ajax_idx_reindex', array( $this, 'ajax_reindex' ) );
+		add_action( 'wp_ajax_idx_reindex_status', array( $this, 'ajax_reindex_status' ) );
 
 		// Self-hosted updates served by the wordpress-idx sidecar.
 		add_filter( 'update_plugins_' . self::UPDATE_HOST, array( $this, 'check_for_update' ), 10, 3 );
@@ -525,6 +526,9 @@ class WordpressIdxSearch {
 		<?php
 	}
 
+	/**
+	 * Admin-ajax `idx_reindex`: starts a rebuild, see start_reindex().
+	 */
 	public function ajax_reindex() {
 		check_ajax_referer( 'idx_reindex' );
 
@@ -532,34 +536,122 @@ class WordpressIdxSearch {
 			wp_send_json_error( 'Unauthorized', 403 );
 		}
 
+		$result = $this->start_reindex();
+		if ( is_wp_error( $result ) ) {
+			wp_send_json_error( $result->get_error_message() );
+		}
+		wp_send_json_success( $result );
+	}
+
+	/**
+	 * Admin-ajax `idx_reindex_status`: the state of the last rebuild, see
+	 * reindex_status(). The settings page asks it until the rebuild ends.
+	 */
+	public function ajax_reindex_status() {
+		check_ajax_referer( 'idx_reindex' );
+
+		if ( ! current_user_can( 'edit_posts' ) ) {
+			wp_send_json_error( 'Unauthorized', 403 );
+		}
+
+		$result = $this->reindex_status();
+		if ( is_wp_error( $result ) ) {
+			wp_send_json_error( $result->get_error_message() );
+		}
+		wp_send_json_success( $result );
+	}
+
+	/**
+	 * Starts a rebuild of the index in the sidecar without waiting for its
+	 * end, which on a large site comes after minutes, longer than a proxy or
+	 * this request may wait. reindex_status() tells how it ends.
+	 *
+	 * @return array|WP_Error `state` 'running', or 'done' with `entries` from
+	 *                        a sidecar that waited for the end after all.
+	 */
+	public function start_reindex() {
+		$response = $this->call_reindex(
+			'POST',
+			array( 'Prefer' => 'respond-async' ),
+			30
+		);
+		if ( is_wp_error( $response ) ) {
+			return $response;
+		}
+		list( $code, $body ) = $response;
+		if ( 202 === $code ) {
+			return array( 'state' => 'running' );
+		}
+		if ( 200 === $code ) {
+			return array(
+				'state'   => 'done',
+				'entries' => isset( $body['entries'] ) ? $body['entries'] : null,
+			);
+		}
+		return $this->reindex_error( $code, $body );
+	}
+
+	/**
+	 * The state of the last rebuild, from the sidecar: the one in this pod,
+	 * which reports it also when the sidecar of another replica runs it.
+	 *
+	 * @return array|WP_Error `state` (idle, running, done, failed), `entries`,
+	 *                        `message`.
+	 */
+	public function reindex_status() {
+		$response = $this->call_reindex( 'GET', array(), 15 );
+		if ( is_wp_error( $response ) ) {
+			return $response;
+		}
+		list( $code, $body ) = $response;
+		if ( 200 === $code && is_array( $body ) && isset( $body['state'] ) ) {
+			return array(
+				'state'   => (string) $body['state'],
+				'entries' => isset( $body['entries'] ) ? $body['entries'] : null,
+				'message' => isset( $body['message'] ) ? $body['message'] : null,
+			);
+		}
+		return $this->reindex_error( $code, $body );
+	}
+
+	/**
+	 * Calls /api/reindex of the sidecar with the key.
+	 *
+	 * @return array|WP_Error The status code and the decoded body.
+	 */
+	private function call_reindex( $method, array $headers, $timeout ) {
 		$t       = $this->i18n();
 		$api_key = get_option( self::OPTION_API_KEY, '' );
 		if ( empty( $api_key ) ) {
-			wp_send_json_error( $t['admin_no_key'] );
+			return new WP_Error( 'idx_no_key', $t['admin_no_key'] );
 		}
 
 		// Server-side call, so it must honour WORDPRESS_IDX_BASE like the update
 		// check does: a pod that cannot reach its own public URL would time out.
-		$response = wp_remote_post(
+		$response = wp_remote_request(
 			$this->api_base() . '/api/reindex',
 			array(
-				'headers' => array( 'Authorization' => 'Bearer ' . $api_key ),
-				'timeout' => 120,
+				'method'  => $method,
+				'headers' => array_merge( array( 'Authorization' => 'Bearer ' . $api_key ), $headers ),
+				'timeout' => $timeout,
 			)
 		);
-
 		if ( is_wp_error( $response ) ) {
-			wp_send_json_error( $response->get_error_message() );
+			return $response;
 		}
+		return array(
+			wp_remote_retrieve_response_code( $response ),
+			json_decode( wp_remote_retrieve_body( $response ), true ),
+		);
+	}
 
-		$code = wp_remote_retrieve_response_code( $response );
-		$body = json_decode( wp_remote_retrieve_body( $response ), true );
-
-		if ( 200 === $code ) {
-			wp_send_json_success( $body );
-		} else {
-			wp_send_json_error( isset( $body['error'] ) ? $body['error'] : "HTTP $code" );
+	/** The error a sidecar answered with, and why, when it says. */
+	private function reindex_error( $code, $body ) {
+		if ( ! is_array( $body ) || ! isset( $body['error'] ) ) {
+			return new WP_Error( 'idx_reindex', "HTTP $code" );
 		}
+		$text = isset( $body['message'] ) ? $body['error'] . ': ' . $body['message'] : $body['error'];
+		return new WP_Error( 'idx_reindex', $text );
 	}
 
 	// ── Self-hosted updates ─────────────────────────────────
