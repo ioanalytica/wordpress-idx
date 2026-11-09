@@ -3,7 +3,7 @@
 What changed in each version of wordpress-idx. The sidecar and the WordPress
 plugin share one version; the entry of a version is its release notes.
 
-## Unreleased
+## 1.3.11
 
 * **"Rebuild index" reports the first rebuild of a site with several
   replicas.** The state of a rebuild is a file on the shared volume, and the

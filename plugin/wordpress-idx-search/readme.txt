@@ -3,7 +3,7 @@ Contributors: ioanalytica
 Tags: search, fulltext, full-text, flexsearch, idx
 Requires at least: 5.0
 Tested up to: 7.1
-Stable tag: 1.3.10
+Stable tag: 1.3.11
 Requires PHP: 7.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -72,6 +72,9 @@ The search UI is available in German, English, French, and Spanish. The language
 
 == Changelog ==
 
+= 1.3.11 =
+* "Rebuild index" waits for the state of the rebuild it started: on a site with several replicas the first rebuild no longer ends in an error when the settings page asks another replica than the one that runs it
+
 = 1.3.10 =
 * "Rebuild index" starts the rebuild and asks the sidecar every three seconds how it ends, instead of waiting for the end in one call: on a large site, whose rebuild takes minutes, the settings page no longer reports an error for a rebuild that succeeds
 * A rebuild that runs in the sidecar of another replica is reported as well, and a rebuild asked for while one is seen running is refused; two asked for at the same moment from two replicas can both start
@@ -109,6 +112,9 @@ The search UI is available in German, English, French, and Spanish. The language
 * Admin settings for language, API key, and reindex
 
 == Upgrade Notice ==
+
+= 1.3.11 =
+"Rebuild index" also reports the first rebuild of a site with several replicas. Comes with sidecar 1.3.11.
 
 = 1.3.10 =
 "Rebuild index" reports the end of a long rebuild. Comes with sidecar 1.3.10, which several replicas on one volume share their index with.
