@@ -1,7 +1,10 @@
+import { join } from 'node:path';
 import express, { Router } from 'express';
 import cors from 'cors';
 import config from './config.js';
 import { testConnection } from './db.js';
+import { INDEX_FILE } from './index-format.js';
+import { createIndexFollower } from './index-follower.js';
 import { buildIndexInChild, readIndexFile } from './indexer.js';
 import { prepareIndex } from './startup.js';
 import { createSearchRouter } from './searcher.js';
@@ -81,11 +84,25 @@ function activateIndex(index) {
   return index.size;
 }
 
-// After a reindex: the file that was just written.
+// Sidecars on the same volume share the index file, and a rebuild in one of
+// them replaces it: the follower loads it into the others.
+const follower = createIndexFollower({
+  path: join(config.dataDir, INDEX_FILE),
+  served: () => currentIndex,
+  activate: activateIndex,
+});
+
+/**
+ * After a reindex: the file that was just written. The follower may have
+ * loaded it already, or a file that another sidecar wrote since.
+ */
 async function loadIndex() {
-  const index = await readIndexFile();
-  if (!index) throw new Error('The index file that was just written cannot be loaded.');
-  return activateIndex(index);
+  try {
+    const index = await follower.check({ required: true });
+    return index.size;
+  } catch (err) {
+    throw new Error(`The index file that was just written cannot be loaded (${err.message}).`);
+  }
 }
 
 // Mount reindex endpoint
@@ -121,6 +138,10 @@ const server = app.listen(config.port, async () => {
       },
     });
     activateIndex(index);
+    if (config.reloadInterval > 0) {
+      follower.start(config.reloadInterval * 1000);
+      console.log(`Looking for a replaced index file every ${config.reloadInterval}s.`);
+    }
   } catch (err) {
     console.error(`Startup error: ${err.message}`);
   }

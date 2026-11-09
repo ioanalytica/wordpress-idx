@@ -3,6 +3,21 @@
 What changed in each version of wordpress-idx. The sidecar and the WordPress
 plugin share one version; the entry of a version is its release notes.
 
+## Unreleased
+
+* **Sidecars that share a volume serve the same index.** With several
+  replicas of WordPress, each with its sidecar on one ReadWriteMany volume, a
+  rebuild ran in the one sidecar that got the call: it replaced the shared
+  index file and served the new index, while the other sidecars went on
+  serving the index they had loaded until they restarted. A search could
+  then find other entries depending on the replica that answered it. Every
+  sidecar now looks at the index file every 30 seconds (`RELOAD_INTERVAL`,
+  `0` turns it off) and loads it when another sidecar has replaced it. It
+  never builds because of that: a file it cannot load, such as one that a
+  sidecar of another version wrote during a rolling update, leaves the index
+  it serves in place. The README describes the behaviour under "Several
+  sidecars on one volume".
+
 ## 1.3.9
 
 * **The index of a large site is built and served with a fraction of the
