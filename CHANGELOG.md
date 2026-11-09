@@ -17,6 +17,15 @@ plugin share one version; the entry of a version is its release notes.
   sidecar of another version wrote during a rolling update, leaves the index
   it serves in place. The README describes the behaviour under "Several
   sidecars on one volume".
+* **The files of a killed index build are removed.** A build whose process
+  was killed, by the kernel for memory or with its container, left its
+  unfinished files in `DATA_DIR`, and every new attempt added two more. Only
+  a build that succeeded removed them, and only once they were an hour old,
+  so on a volume with little room the sidecar could fail to build its index
+  for good. The service now removes the files of its build process when that
+  process ends without a result, and every build first removes what a build
+  on the same host left whose process is gone; the files of a build on
+  another host are still removed after an hour, since it may be running.
 
 ## 1.3.9
 

@@ -1,9 +1,11 @@
 import { test, describe, before, beforeEach, afterEach, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { closeSync, mkdtempSync, openSync, readdirSync, readFileSync, readSync, rmSync, truncateSync, utimesSync, writeFileSync, writeSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { spawnSync } from 'node:child_process';
+import { hostname, tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { buildIndexFile, readIndexFile } from '../src/indexer.js';
+import { pathToFileURL } from 'node:url';
+import { buildIndexFile, buildIndexInChild, readIndexFile, removeDeadBuilds } from '../src/indexer.js';
 import { INDEX_FILE, INDEX_FORMAT } from '../src/index-format.js';
 import { HEADER_SIZE, MAGIC } from '../src/index-writer.js';
 import { SAMPLE_ENTRIES } from './helpers.js';
@@ -181,6 +183,83 @@ describe('the index file', () => {
       utimesSync(dead, twoHoursAgo, twoHoursAgo);
       await build();
       assert.deepEqual(readdirSync(dir).sort(), [INDEX_FILE, `${INDEX_FILE}.other-host-2.tmp`]);
+    });
+
+    // A process ID that no process has: that of a process that has ended.
+    const endedPid = () => spawnSync(process.execPath, ['-e', '']).pid;
+
+    test('first removes the files of a build on this host whose process is gone, not those of one that runs', async () => {
+      const dead = [`${INDEX_FILE}.${hostname()}-${endedPid()}.tmp`, `${INDEX_FILE}.${hostname()}-${endedPid()}.runs.tmp`];
+      // Not this process: the build below runs in it, and writes under its ID.
+      const running = `${INDEX_FILE}.${hostname()}-${process.ppid}.tmp`;
+      for (const name of [...dead, running]) writeFileSync(join(dir, name), 'x');
+      let seen;
+      async function* source() {
+        seen = readdirSync(dir).sort();
+        yield SAMPLE_ENTRIES;
+      }
+      await buildIndexFile(dir, source());
+      // When the build starts: the files of the build that died are gone, the
+      // running build's file stays, and the build has opened its own two.
+      assert.equal(seen.some((name) => dead.includes(name)), false);
+      assert.ok(seen.includes(running));
+      assert.deepEqual(readdirSync(dir).sort(), [INDEX_FILE, running]);
+      assert.ok(messages.some((line) => /files of index builds that did not finish/.test(line)));
+    });
+  });
+
+  describe('removeDeadBuilds()', () => {
+    test('removes what a build on this host left when its process is gone, and what one on another host left after an hour', () => {
+      const names = {
+        deadHere: `${INDEX_FILE}.pod-a-7.tmp`,
+        deadHereRuns: `${INDEX_FILE}.pod-a-7.runs.tmp`,
+        runningHere: `${INDEX_FILE}.pod-a-8.tmp`,
+        recentElsewhere: `${INDEX_FILE}.pod-b-7.tmp`,
+        oldElsewhere: `${INDEX_FILE}.pod-b-9.runs.tmp`,
+        index: INDEX_FILE,
+        other: 'notes.tmp',
+      };
+      for (const name of Object.values(names)) writeFileSync(join(dir, name), 'x');
+      const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000);
+      utimesSync(join(dir, names.oldElsewhere), twoHoursAgo, twoHoursAgo);
+      // An old file of a build on this host stays while its process runs.
+      utimesSync(join(dir, names.runningHere), twoHoursAgo, twoHoursAgo);
+
+      const removed = removeDeadBuilds(dir, { host: 'pod-a', runs: (pid) => pid === 8 });
+      assert.deepEqual(removed.sort(), [names.deadHere, names.deadHereRuns, names.oldElsewhere].sort());
+      assert.deepEqual(readdirSync(dir).sort(), [names.index, names.other, names.recentElsewhere, names.runningHere].sort());
+    });
+
+    test('says nothing when there is nothing to remove', () => {
+      writeFileSync(file(), 'x');
+      assert.deepEqual(removeDeadBuilds(dir), []);
+      assert.deepEqual(messages, []);
+    });
+  });
+
+  describe('buildIndexInChild()', () => {
+    test('removes the files of a build whose process was killed', async () => {
+      // A build that has written its first entries when the kernel ends it.
+      const scripts = mkdtempSync(join(tmpdir(), 'idx-child-'));
+      const script = join(scripts, 'killed-build.mjs');
+      const src = (name) => pathToFileURL(join(import.meta.dirname, '..', 'src', name)).href;
+      writeFileSync(
+        script,
+        [
+          `import { join } from 'node:path';`,
+          `import { INDEX_FILE } from '${src('index-format.js')}';`,
+          `import { IndexWriter } from '${src('index-writer.js')}';`,
+          `const writer = new IndexWriter(join(process.argv[2], INDEX_FILE));`,
+          `writer.add(${JSON.stringify(SAMPLE_ENTRIES)});`,
+          `process.kill(process.pid, 'SIGKILL');`,
+        ].join('\n'),
+      );
+      try {
+        await assert.rejects(buildIndexInChild(dir, { child: script }), /ended without a result \(signal SIGKILL\)/);
+        assert.deepEqual(readdirSync(dir), []);
+      } finally {
+        rmSync(scripts, { recursive: true, force: true });
+      }
     });
   });
 

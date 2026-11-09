@@ -216,7 +216,7 @@ Stored in `DATA_DIR`:
 | File | Purpose | Persistent |
 |---|---|---|
 | `wp-index.bin` | The entries as the API returns them, and the search index | Yes |
-| `wp-index.bin.<host>-<pid>.tmp`, `…runs.tmp` | The index file while it is written, and the build's intermediate results | Removed when the build ends; one that a killed build left behind is removed by a later build once it is an hour old |
+| `wp-index.bin.<host>-<pid>.tmp`, `…runs.tmp` | The index file while it is written, and the build's intermediate results | Removed when the build ends. Those of a build whose process was killed are removed by the service that started it, and by every build before it starts and after it has written the index: at once when the killed build ran on the same host and its process is gone, else once they are an hour old, since a sidecar on another host may still be writing them |
 
 On startup the app checks for `wp-index.bin`. If found, it loads the index directly (no DB connection needed). If missing or `FORCE_UPDATE=true`, it extracts from the database and builds the index. A build that fails, because the database does not answer yet or WordPress has not created its tables, is tried again every 5 seconds until it succeeds; `/readyz` answers 503 in the meantime. A build that finds no public post or page is repeated once after the same pause before its empty index is served, because WordPress creates its tables a moment before it fills them; for the same reason an index file without entries is not loaded at a start but built again.
 
