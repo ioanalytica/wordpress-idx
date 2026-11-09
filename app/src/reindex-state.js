@@ -188,7 +188,9 @@ export function createReindexState({
    * been there since the start is seen as it changes.
    */
   async function ensure() {
-    const tmp = `${path()}.${host}-${pid}.tmp`;
+    // A name of its own: a rebuild that starts meanwhile writes through
+    // writeNow(), whose file this must not link or remove.
+    const tmp = `${path()}.${host}-${pid}.init.tmp`;
     try {
       await writeText(tmp, JSON.stringify({ state: 'idle' }));
       // link() fails when the name exists, on a network volume as well: of

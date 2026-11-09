@@ -138,6 +138,16 @@ describe('rebuilds and their state', () => {
     await a.finish(1);
   });
 
+  test('a rebuild that starts while ensure() runs is not disturbed by it', async () => {
+    const state = createReindexState({ dir, host: 'pod-a' });
+    const [, startedAt] = await Promise.all([state.ensure(), state.start()]);
+    const read = await state.read();
+    assert.equal(read.state, 'running');
+    assert.equal(read.startedAt, startedAt);
+    assert.deepEqual(readdirSync(dir), [STATE_FILE], 'no temporary file is left');
+    await state.finish(1);
+  });
+
   test('nothing rebuilt yet: idle', async () => {
     const s = await sidecar();
     assert.deepEqual((await call(s, 'GET')).body, { state: 'idle' });
