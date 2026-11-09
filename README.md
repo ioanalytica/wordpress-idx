@@ -152,13 +152,28 @@ Triggers a full re-extraction from the WordPress database and rebuilds the searc
 - `Authorization: Bearer <key>`
 - `X-Api-Key: <key>`
 
+The call answers when the rebuild is done. On a large site that takes minutes, longer than a proxy or a client usually waits; with the header `Prefer: respond-async` the call answers `202` at once, and `GET /api/reindex` reports how the rebuild ends. The plugin's "Rebuild index" does that.
+
 | Status | Meaning |
 |---|---|
 | 200 | Reindex complete, returns `{ "status": "ok", "entries": 1695 }` |
+| 202 | With `Prefer: respond-async`: the rebuild has started, returns `{ "status": "running" }` and the header `Preference-Applied: respond-async` |
 | 401 | Invalid or missing API key |
-| 409 | Reindex already in progress |
+| 409 | Reindex already in progress, in this sidecar or in another one on the same volume |
 | 500 | Reindex failed, returns `{ "error": "Reindex failed", "message": "…" }` |
 | 503 | `REINDEX_API_KEY` not configured |
+
+```
+GET /api/reindex
+```
+
+The state of the last rebuild, with the same authentication and the same 401 and 503:
+
+```json
+{ "state": "done", "startedAt": "2026-11-09T15:00:00.000Z", "finishedAt": "2026-11-09T15:04:51.000Z", "entries": 62000, "message": null }
+```
+
+`state` is `idle` before the first rebuild (the other fields are then absent), `running`, `done` with `entries`, or `failed` with `message`. The state is kept in `DATA_DIR` (`reindex-state.json`), so every sidecar on the same volume reports it, whichever ran the rebuild. A running rebuild writes it again every 10 seconds; one that has not for a minute is reported as failed, since its sidecar ended or was restarted.
 
 With several sidecars on one volume, the sidecar that gets the call rebuilds; the others load the new index file within `RELOAD_INTERVAL`, see [Several sidecars on one volume](#several-sidecars-on-one-volume).
 
@@ -216,6 +231,7 @@ Stored in `DATA_DIR`:
 | File | Purpose | Persistent |
 |---|---|---|
 | `wp-index.bin` | The entries as the API returns them, and the search index | Yes |
+| `reindex-state.json` | The state of the last rebuild that `POST /api/reindex` started, see [Reindex](#reindex) | Yes |
 | `wp-index.bin.<host>-<pid>.tmp`, `…runs.tmp` | The index file while it is written, and the build's intermediate results | Removed when the build ends. Those of a build whose process was killed are removed by the service that started it, and by every build before it starts and after it has written the index: at once when the killed build ran on the same host and its process is gone, else once they are an hour old, since a sidecar on another host may still be writing them |
 
 On startup the app checks for `wp-index.bin`. If found, it loads the index directly (no DB connection needed). If missing or `FORCE_UPDATE=true`, it extracts from the database and builds the index. A build that fails, because the database does not answer yet or WordPress has not created its tables, is tried again every 5 seconds until it succeeds; `/readyz` answers 503 in the meantime. A build that finds no public post or page is repeated once after the same pause before its empty index is served, because WordPress creates its tables a moment before it fills them; for the same reason an index file without entries is not loaded at a start but built again.
@@ -231,7 +247,7 @@ Sidecars that share `DATA_DIR`, as the replicas of a Deployment do when their vo
 - **A rebuild** (`POST /api/reindex`, or "Rebuild index" in wp-admin) runs in the one sidecar that gets the call. It replaces the file and serves the new index at once. Every other sidecar looks at the file every `RELOAD_INTERVAL` seconds (30 by default), sees by its inode, size and modification time that it has been replaced, and loads it. Until then a search is answered from the old index or the new one, depending on the replica it reaches.
 - **A sidecar only loads**: it never builds because the file has changed. A file it cannot load, such as one that a sidecar of another version wrote during a rolling update, leaves the index it serves in place, and so does a file that is gone; its log says so once.
 - **At a start without an index file** every sidecar builds one, at the same time, each into a file of its own name (`<host>-<pid>`) that it renames to `wp-index.bin` when it is complete. The file of the build that finishes last stays, and the other sidecars load it within `RELOAD_INTERVAL`. While they build, the database answers every build, and `DATA_DIR` needs room for three to four times the index file per build.
-- **Two rebuilds at once** in different sidecars are not refused with 409, which only guards a sidecar against a second rebuild of its own. Both complete, and the file of the one that finishes last is served everywhere.
+- **A second rebuild** while one runs is refused with 409, also when the running one is in another sidecar on the volume: each sidecar reads the state of the rebuild from `DATA_DIR`. That is no lock: two calls at the same moment to two sidecars can both start a rebuild. Both complete, and the file of the one that finishes last is served everywhere.
 
 ## Memory
 

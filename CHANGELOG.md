@@ -26,6 +26,17 @@ plugin share one version; the entry of a version is its release notes.
   process ends without a result, and every build first removes what a build
   on the same host left whose process is gone; the files of a build on
   another host are still removed after an hour, since it may be running.
+* **"Rebuild index" reports the end of a long rebuild.** The rebuild of a
+  large site takes minutes, and the call that started it waited for the end:
+  the plugin gave up after 120 seconds, a proxy usually after 60, and the
+  settings page showed an error although the rebuild went on and succeeded.
+  The plugin now starts the rebuild with the header `Prefer: respond-async`,
+  which the sidecar answers with `202` at once, and asks `GET /api/reindex`
+  every three seconds how it ends. The sidecar keeps that state in
+  `DATA_DIR` (`reindex-state.json`), so every sidecar on the same volume
+  reports it and refuses a second rebuild with `409`, whichever runs the
+  first. `POST /api/reindex` without the header answers as before, when the
+  rebuild is done.
 
 ## 1.3.9
 

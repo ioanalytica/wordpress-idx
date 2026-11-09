@@ -119,6 +119,127 @@ class Test_Wordpress_Idx_Search extends WP_UnitTestCase {
 		return $calls;
 	}
 
+	/**
+	 * Answer every HTTP request with the given status and body, and keep the
+	 * URL and the arguments of each request.
+	 */
+	private function mock_sidecar_response( $code, array $body ) {
+		$calls = new ArrayObject();
+		add_filter(
+			'pre_http_request',
+			function ( $pre, $args, $url ) use ( $code, $body, $calls ) {
+				$calls[] = array(
+					'url'  => $url,
+					'args' => $args,
+				);
+				return array(
+					'headers'  => array(),
+					'body'     => wp_json_encode( $body ),
+					'response' => array(
+						'code'    => $code,
+						'message' => '',
+					),
+					'cookies'  => array(),
+				);
+			},
+			10,
+			3
+		);
+		return $calls;
+	}
+
+	public function test_start_reindex_asks_the_sidecar_not_to_wait() {
+		update_option( WordpressIdxSearch::OPTION_API_KEY, 'the-key' );
+		$calls = $this->mock_sidecar_response( 202, array( 'status' => 'running' ) );
+
+		$this->assertSame( array( 'state' => 'running' ), $this->plugin->start_reindex() );
+		$this->assertCount( 1, $calls );
+		$this->assertStringEndsWith( '/api/reindex', $calls[0]['url'] );
+		$this->assertSame( 'POST', $calls[0]['args']['method'] );
+		$this->assertSame( 'respond-async', $calls[0]['args']['headers']['Prefer'] );
+		$this->assertSame( 'Bearer the-key', $calls[0]['args']['headers']['Authorization'] );
+	}
+
+	public function test_start_reindex_takes_the_answer_of_a_sidecar_that_waited() {
+		update_option( WordpressIdxSearch::OPTION_API_KEY, 'the-key' );
+		$this->mock_sidecar_response(
+			200,
+			array(
+				'status'  => 'ok',
+				'entries' => 12,
+			)
+		);
+
+		$this->assertSame(
+			array(
+				'state'   => 'done',
+				'entries' => 12,
+			),
+			$this->plugin->start_reindex()
+		);
+	}
+
+	public function test_start_reindex_reports_what_the_sidecar_answered() {
+		update_option( WordpressIdxSearch::OPTION_API_KEY, 'the-key' );
+		$this->mock_sidecar_response( 409, array( 'error' => 'Reindex already in progress.' ) );
+
+		$result = $this->plugin->start_reindex();
+		$this->assertWPError( $result );
+		$this->assertSame( 'Reindex already in progress.', $result->get_error_message() );
+
+		remove_all_filters( 'pre_http_request' );
+		$this->mock_sidecar_response(
+			500,
+			array(
+				'error'   => 'Reindex failed',
+				'message' => 'the database does not answer',
+			)
+		);
+		$this->assertSame( 'Reindex failed: the database does not answer', $this->plugin->start_reindex()->get_error_message() );
+	}
+
+	public function test_start_reindex_needs_a_key() {
+		delete_option( WordpressIdxSearch::OPTION_API_KEY );
+		$calls = $this->mock_sidecar_response( 202, array( 'status' => 'running' ) );
+
+		$this->assertWPError( $this->plugin->start_reindex() );
+		$this->assertCount( 0, $calls, 'Without a key the sidecar is not called.' );
+	}
+
+	public function test_reindex_status_reports_the_state_of_the_rebuild() {
+		update_option( WordpressIdxSearch::OPTION_API_KEY, 'the-key' );
+		$calls = $this->mock_sidecar_response(
+			200,
+			array(
+				'state'      => 'failed',
+				'startedAt'  => '2026-11-09T15:00:00.000Z',
+				'finishedAt' => '2026-11-09T15:00:02.000Z',
+				'entries'    => null,
+				'message'    => 'the database does not answer',
+			)
+		);
+
+		$this->assertSame(
+			array(
+				'state'   => 'failed',
+				'entries' => null,
+				'message' => 'the database does not answer',
+			),
+			$this->plugin->reindex_status()
+		);
+		$this->assertSame( 'GET', $calls[0]['args']['method'] );
+		$this->assertStringEndsWith( '/api/reindex', $calls[0]['url'] );
+	}
+
+	public function test_reindex_status_reports_an_answer_without_a_state_as_an_error() {
+		update_option( WordpressIdxSearch::OPTION_API_KEY, 'the-key' );
+		$this->mock_sidecar_response( 401, array( 'error' => 'Invalid or missing API key.' ) );
+
+		$result = $this->plugin->reindex_status();
+		$this->assertWPError( $result );
+		$this->assertSame( 'Invalid or missing API key.', $result->get_error_message() );
+	}
+
 	private function plugin_file() {
 		return plugin_basename( dirname( __DIR__ ) . '/wordpress-idx-search.php' );
 	}
