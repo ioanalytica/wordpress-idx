@@ -160,6 +160,8 @@ Triggers a full re-extraction from the WordPress database and rebuilds the searc
 | 500 | Reindex failed, returns `{ "error": "Reindex failed", "message": "…" }` |
 | 503 | `REINDEX_API_KEY` not configured |
 
+With several sidecars on one volume, the sidecar that gets the call rebuilds; the others load the new index file within `RELOAD_INTERVAL`, see [Several sidecars on one volume](#several-sidecars-on-one-volume).
+
 ### Plugin distribution
 
 The image bundles the WordPress plugin, and the sidecar serves it so that WordPress can update the plugin from its own sidecar (the plugin's `Update URI` mechanism).
@@ -188,6 +190,7 @@ The image bundles the WordPress plugin, and the sidecar serves it so that WordPr
 | `REINDEX_API_KEY` | | API key for `/api/reindex` (disabled when empty) |
 | `FORCE_UPDATE` | `false` | Rebuild index on every startup |
 | `STARTUP_DELAY` | `0` | Seconds to wait before the first DB connection when the index has to be built (sidecar startup ordering) |
+| `RELOAD_INTERVAL` | `30` | Seconds between two looks at whether the index file has been replaced by another sidecar on the same volume, see [Several sidecars on one volume](#several-sidecars-on-one-volume); `0` turns this off |
 | `PLUGIN_AUTO_UPDATE` | `true` | `false` makes the update manifest tell the plugin not to install its updates automatically |
 | `PLUGIN_ZIP_PATH` | `/app/wordpress-idx-search.zip` | The plugin package served at `/plugin/wordpress-idx-search.zip` |
 | `PLUGIN_SRC_PATH` | `/app/plugin-src`, else the checkout's `plugin/wordpress-idx-search` | The plugin tree the update manifest reads its version from |
@@ -221,13 +224,22 @@ The index file carries a format number. A file written by an earlier version of 
 
 The file is written under a name of its own and gets its name when it is complete: a build that fails, or is killed, leaves the index that was there in place.
 
+### Several sidecars on one volume
+
+Sidecars that share `DATA_DIR`, as the replicas of a Deployment do when their volume is ReadWriteMany, share the index file. Each holds the index in memory on its own.
+
+- **A rebuild** (`POST /api/reindex`, or "Rebuild index" in wp-admin) runs in the one sidecar that gets the call. It replaces the file and serves the new index at once. Every other sidecar looks at the file every `RELOAD_INTERVAL` seconds (30 by default), sees by its inode, size and modification time that it has been replaced, and loads it. Until then a search is answered from the old index or the new one, depending on the replica it reaches.
+- **A sidecar only loads**: it never builds because the file has changed. A file it cannot load, such as one that a sidecar of another version wrote during a rolling update, leaves the index it serves in place, and so does a file that is gone; its log says so once.
+- **At a start without an index file** every sidecar builds one, at the same time, each into a file of its own name (`<host>-<pid>`) that it renames to `wp-index.bin` when it is complete. The file of the build that finishes last stays, and the other sidecars load it within `RELOAD_INTERVAL`. While they build, the database answers every build, and `DATA_DIR` needs room for three to four times the index file per build.
+- **Two rebuilds at once** in different sidecars are not refused with 409, which only guards a sidecar against a second rebuild of its own. Both complete, and the file of the one that finishes last is served everywhere.
+
 ## Memory
 
 FlexSearch tokenizes, scores and matches, at build time and for every query. What it would keep in memory, every entry and every posting as JavaScript objects, is kept in the index file's compact form instead, in memory outside the JavaScript heap. The heap stays small whatever the size of the site, so Node's default heap limit is enough and `NODE_OPTIONS=--max-old-space-size` is not needed.
 
 - **At rest** the sidecar holds the index file in memory once, plus about 100 MiB for Node itself.
 - **A build** runs in a process of its own, next to the service, which keeps answering requests and health checks. It reads the site in batches, indexes it in parts and merges them on disk. It needs 0.25 to 0.55 GiB, depending on how many different words the text has and hardly on the size of the site; `DATA_DIR` needs room for three to four times the index file while it runs.
-- **After a rebuild** (`POST /api/reindex`) the new index is loaded before the old one is let go, so for a moment both are in memory.
+- **After a rebuild** (`POST /api/reindex`), and when a sidecar loads an index file that another sidecar wrote, the new index is loaded before the old one is let go, so for a moment both are in memory.
 
 Measured on a site of 15,600 posts and pages with 44 million characters of content and 37,000 comments, on Node.js 26 in a container with the memory limit named, without `NODE_OPTIONS`:
 
@@ -242,7 +254,7 @@ Measured on a site of 15,600 posts and pages with 44 million characters of conte
 
 A memory limit of 1 GiB leaves that site twice the room it needs. With the chart's default for the sidecar (768 MiB) its build and its rebuild peaked at 0.46 GiB.
 
-For a site that was not measured, plan with a limit of twice the size of the index file plus 0.6 GiB: the index in memory and either the build next to it or, for the moment after a rebuild, the new index. That is a bound with room to spare, since it counts the most a build was seen to need (0.55 GiB, for text with many different words); for the site above it gives 0.87 GiB, nearly twice its measured peak.
+For a site that was not measured, plan with a limit of twice the size of the index file plus 0.6 GiB: the index in memory and either the build next to it or, for the moment after a rebuild or a reload, the new index. That is a bound with room to spare, since it counts the most a build was seen to need (0.55 GiB, for text with many different words); for the site above it gives 0.87 GiB, nearly twice its measured peak.
 
 ## Kubernetes sidecar deployment
 
@@ -261,6 +273,7 @@ idx:
 Key integration points:
 
 - **Shared PVC**: Mounts the pod's PVC at `/idx` (subPath: `idx`) for persistent index storage
+- **Replicas**: With more than one replica every pod runs a sidecar of its own on the shared volume, see [Several sidecars on one volume](#several-sidecars-on-one-volume)
 - **DB credentials**: Derived from the existing WordPress database configuration
 - **Ingress**: Path `/idx` routed to the sidecar's port 3000
 - **NetworkPolicy**: Port 3000 added to allowed ingress when `idx.enabled`

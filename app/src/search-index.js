@@ -176,9 +176,11 @@ class FieldPostings {
 }
 
 export class SearchIndex {
-  constructor({ header, records, recordLengths, meta, fields }) {
+  constructor({ header, records, recordLengths, meta, fields, file = null }) {
     /** Number of entries. */
     this.size = header.entries;
+    /** The file the index was loaded from: dev, ino, size, mtimeMs. */
+    this.file = file;
     /** Bytes the index holds in memory outside the JavaScript heap. */
     this.bytes = records.length;
     this.records = records;
@@ -279,6 +281,9 @@ export class SearchIndex {
 export async function loadIndexFile(path) {
   const file = await open(path, 'r');
   try {
+    // Which file this is: index-follower.js compares it with the file at
+    // `path` to tell whether another sidecar has replaced it since.
+    const { dev, ino, size, mtimeMs } = await file.stat();
     const header = await readHeader(file);
     const fields = {};
     for (const field of INDEX_FIELDS) {
@@ -296,6 +301,7 @@ export async function loadIndexFile(path) {
       recordLengths: await readSection(file, header.recordLengths),
       meta: await readSection(file, header.meta),
       fields,
+      file: { dev, ino, size, mtimeMs },
     });
   } finally {
     await file.close();

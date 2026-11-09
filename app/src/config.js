@@ -19,6 +19,13 @@ function defaultPluginSrc() {
   return candidates.find(existsSync) || candidates[0];
 }
 
+// A number of seconds from the environment: `fallback` when it is unset or
+// not a number of 0 or more.
+function seconds(value, fallback) {
+  const n = Number.parseInt(value, 10);
+  return Number.isNaN(n) || n < 0 ? fallback : n;
+}
+
 const config = {
   db: {
     host: process.env.DB_HOST,
@@ -34,6 +41,10 @@ const config = {
   dataDir: resolve(process.env.DATA_DIR || '/data'),
   basePath: process.env.BASE_PATH || '',
   startupDelay: parseInt(process.env.STARTUP_DELAY, 10) || 0,
+  // How often the service looks whether the index file has been replaced, by
+  // a sidecar of another replica on the same volume (index-follower.js); 0
+  // turns that off.
+  reloadInterval: seconds(process.env.RELOAD_INTERVAL, 30),
   // Version of this service; the plugin manifest uses the plugin's own header.
   version: pkg.version,
   // Bundled WordPress plugin, served for self-hosted auto-updates.
