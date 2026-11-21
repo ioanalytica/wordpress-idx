@@ -210,8 +210,8 @@ of their own, so that they hold no other update; a new major of the plugin's
 tools comes in their monthly group. Closing a pull request declines it: a new
 major stays away until someone moves to it by hand, any other update until
 the next version or commit, which comes as a new pull request. A pull request
-of a group that holds several updates, such as several moved action tags,
-comes back after it is closed.
+of a group whose updates go to different versions or commits, such as several
+moved action tags, comes back after it is closed.
 
 No file pins a download by its sum, so the repository has no
 `.github/checksums.yaml` and no workflow `pin-checksums.yml` of
