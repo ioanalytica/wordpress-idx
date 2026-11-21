@@ -205,8 +205,13 @@ carry the sign-off line. Nothing waits for approval on the issue "Dependency
 Dashboard", which lists every dependency Renovate found: an update that is a
 deliberate move (a new major, a new MySQL series for the test jobs, a new
 commit under an action's unchanged version) comes as a pull request with the
-label `decision`, in a group of its own. Closing it declines that version;
-Renovate proposes the next one.
+label `decision`. A new MySQL series and the moved action tags come in groups
+of their own, so that they hold no other update; a new major of the plugin's
+tools comes in their monthly group. Closing a pull request declines it: a new
+major stays away until someone moves to it by hand, any other update until
+the next version or commit, which comes as a new pull request. A pull request
+of a group that holds several updates, such as several moved action tags,
+comes back after it is closed.
 
 No file pins a download by its sum, so the repository has no
 `.github/checksums.yaml` and no workflow `pin-checksums.yml` of
