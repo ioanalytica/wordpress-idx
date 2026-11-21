@@ -216,7 +216,7 @@ ignores: for a minor or patch update only that version, for a major every
 release of that major (the next major comes again; moving to the declined
 major by hand brings its updates back), for a digest such as a moved action
 tag only that digest. A declined update stays listed on the dashboard under
-"Ignored or Blocked": ticking it there brings its pull request back.
+"PR Closed (Blocked)": ticking it there brings its pull request back.
 
 No file pins a download by its sum, so the repository has no
 `.github/checksums.yaml` and no workflow `pin-checksums.yml` of
