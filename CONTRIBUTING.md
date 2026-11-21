@@ -199,21 +199,24 @@ bot.
 
 Actions are pinned by their commit SHA with the version as a comment, and
 Renovate keeps both in step. An update of the sidecar's packages or of a base
-image changes the image, so its pull request gets a line under
-`## Unreleased` in `CHANGELOG.md` before it is merged. Renovate's commits
-carry the sign-off line. Nothing waits for approval on the issue "Dependency
-Dashboard", which lists every dependency Renovate found: an update that is a
-deliberate move (a new major, a new MySQL series for the test jobs, a new
-commit under an action's unchanged version) comes as a pull request with the
-label `decision`. A new MySQL series and the moved action tags come in groups
-of their own, so that they hold no other update; a new major of the plugin's
-tools comes in their monthly group. Closing a pull request declines it: a new
-major stays away until someone moves to it by hand, any other update until
-the next version or commit, which comes as a new pull request. A pull request
-of a group whose updates go to different versions or commits, such as several
-moved action tags, comes back after it is closed. A declined update stays
-listed on the dashboard under "Ignored or Blocked": ticking it there brings
-its pull request back.
+image changes the image, so its pull request gets a line under `## Unreleased`
+in `CHANGELOG.md` before it is merged. Renovate's commits carry the sign-off
+line. Nothing waits for approval on the issue "Dependency Dashboard", which
+lists every dependency Renovate found: an update that is a deliberate move (a
+new major, a new MySQL series for the test jobs, a new commit under an
+action's unchanged version) comes as a pull request with the label `decision`.
+A new MySQL series and the moved action tags come in groups of their own, so
+that they hold no other update; a new major of the plugin's tools comes in
+their monthly group. What closing a pull request declines depends on it. One
+whose body says **Immortal**, as most groups with updates to different
+versions do, declines nothing: Renovate opens it again at its next scheduled
+run, so an update to hold back is excluded in `.github/renovate.json` instead.
+Otherwise Renovate says in a comment on the closed pull request what it now
+ignores: for a minor or patch update only that version, for a major every
+release of that major (the next major comes again; moving to the declined
+major by hand brings its updates back), for a digest such as a moved action
+tag only that digest. A declined update stays listed on the dashboard under
+"Ignored or Blocked": ticking it there brings its pull request back.
 
 No file pins a download by its sum, so the repository has no
 `.github/checksums.yaml` and no workflow `pin-checksums.yml` of
