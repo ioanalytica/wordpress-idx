@@ -1,15 +1,7 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "description": "Dependency update pull requests for wordpress-idx: the sidecar's npm packages and the Dockerfile's base images every week, the plugin's development tools (npm and Composer) and the GitHub Actions workflows once a month. CONTRIBUTING.md says what the bot updates.",
-  "extends": ["config:recommended", "helpers:pinGitHubActionDigestsToSemver"],
-  "timezone": "Europe/Berlin",
-  "schedule": ["* 0-5 * * 1"],
-  "prConcurrentLimit": 10,
-  "rebaseWhen": "conflicted",
-  "minimumReleaseAge": "3 days",
-  "semanticCommits": "enabled",
-  "commitBody": "Signed-off-by: {{{gitAuthor}}}",
-  "configMigration": true,
+  "description": "Dependency update pull requests for wordpress-idx: the sidecar's npm packages and the Dockerfile's base images every week, the plugin's development tools (npm and Composer) and the GitHub Actions workflows once a month, on the shared preset of ioanalytica/renovate-config (schedule, minimum release age, DCO, review requests, the label decision). CONTRIBUTING.md says what the bot updates.",
+  "extends": ["github>ioanalytica/renovate-config#v1.0.2"],
   "customManagers": [
     {
       "customType": "regex",
@@ -65,19 +57,23 @@
       "schedule": ["* 0-5 1 * *"]
     },
     {
-      "description": "The MySQL that the test jobs start as a service is the series the tests are meant to cover: a new one is a deliberate move, approved on the dashboard. A group of its own, so that the approval does not hold the other workflow updates, and a new major apart from a new minor, so that either can be approved without the other.",
+      "description": "The MySQL that the test jobs start as a service is the series the tests are meant to cover: a new one is a deliberate move, its pull request carries the label decision. A group of its own, so that the decision does not hold the other workflow updates, and a new major apart from a new minor, so that either can be merged without the other.",
       "matchManagers": ["github-actions"],
       "matchDepNames": ["mysql"],
       "groupName": "MySQL of the test jobs",
       "separateMajorMinor": true,
-      "dependencyDashboardApproval": true
+      "addLabels": ["decision"]
     },
     {
-      "description": "A new digest under the same version means a release tag was moved: approve it on the dashboard after a look at the commit. A group of its own, for the same reason.",
+      "description": "A new digest under the same version means a release tag was moved: the preset labels it decision. A group of its own, for the same reason.",
       "matchManagers": ["github-actions"],
       "matchUpdateTypes": ["digest"],
-      "groupName": "GitHub Actions digests",
-      "dependencyDashboardApproval": true
+      "groupName": "GitHub Actions digests"
+    },
+    {
+      "description": "The preset this file extends, and the workflow pin-checksums.yml of ioanalytica/renovate-config once a hash pin brings it, move in one pull request. The preset has this group too, but its rules come before this file's: here, after the groups of the workflows, it wins.",
+      "matchDepNames": ["ioanalytica/renovate-config"],
+      "groupName": "renovate-config"
     },
     {
       "description": "The Renovate that renovate-config.yml runs, once a month: Renovate releases most days.",

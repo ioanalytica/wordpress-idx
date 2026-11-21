@@ -182,7 +182,12 @@ would be unsigned, and a tag it takes is not set again by a release.
 
 [Renovate](https://docs.renovatebot.com/) opens the update pull requests;
 `.github/renovate.json` is its configuration, and the workflow "Renovate
-config" validates the file when a pull request changes it.
+config" validates the file when a pull request changes it. It extends the
+shared preset of
+[ioanalytica/renovate-config](https://github.com/ioanalytica/renovate-config):
+early on Mondays (Europe/Berlin), for releases at least three days old, a
+security fix at any time, each with a review request, and never merged by the
+bot.
 
 | What | When | How |
 |---|---|---|
@@ -196,9 +201,16 @@ Actions are pinned by their commit SHA with the version as a comment, and
 Renovate keeps both in step. An update of the sidecar's packages or of a base
 image changes the image, so its pull request gets a line under
 `## Unreleased` in `CHANGELOG.md` before it is merged. Renovate's commits
-carry the sign-off line. The issue "Dependency Dashboard" lists what is
-pending and what waits for an approval there: a new MySQL series for the test
-jobs, and a new commit under an action's unchanged version.
+carry the sign-off line. Nothing waits for approval on the issue "Dependency
+Dashboard", which lists every dependency Renovate found: an update that is a
+deliberate move (a new major, a new MySQL series for the test jobs, a new
+commit under an action's unchanged version) comes as a pull request with the
+label `decision`, in a group of its own. Closing it declines that version;
+Renovate proposes the next one.
+
+No file pins a download by its sum, so the repository has no
+`.github/checksums.yaml` and no workflow `pin-checksums.yml` of
+renovate-config yet; a hash pin, when one comes, brings both.
 
 ## Pull requests
 
