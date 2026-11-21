@@ -211,7 +211,9 @@ tools comes in their monthly group. Closing a pull request declines it: a new
 major stays away until someone moves to it by hand, any other update until
 the next version or commit, which comes as a new pull request. A pull request
 of a group whose updates go to different versions or commits, such as several
-moved action tags, comes back after it is closed.
+moved action tags, comes back after it is closed. A declined update stays
+listed on the dashboard under "Ignored or Blocked": ticking it there brings
+its pull request back.
 
 No file pins a download by its sum, so the repository has no
 `.github/checksums.yaml` and no workflow `pin-checksums.yml` of
