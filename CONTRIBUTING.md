@@ -185,9 +185,11 @@ would be unsigned, and a tag it takes is not set again by a release.
 config" validates the file when a pull request changes it. It extends the
 shared preset of
 [ioanalytica/renovate-config](https://github.com/ioanalytica/renovate-config):
-every night (Europe/Berlin), for releases at least three days old, at once
-for a base image of the `Dockerfile`, a security fix at any time, each with a review request, and never merged by the
-bot.
+every night (Europe/Berlin), each with a review request, and never merged by
+the bot. A release must be three days old before its pull request comes, with
+two exceptions: a base image of the `Dockerfile` comes in the night after its
+release, and a security fix comes at any time. What the table lists as
+monthly stays monthly.
 
 | What | When | How |
 |---|---|---|
