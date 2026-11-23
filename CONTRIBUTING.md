@@ -185,14 +185,14 @@ would be unsigned, and a tag it takes is not set again by a release.
 config" validates the file when a pull request changes it. It extends the
 shared preset of
 [ioanalytica/renovate-config](https://github.com/ioanalytica/renovate-config):
-early on Mondays (Europe/Berlin), for releases at least three days old, a
-security fix at any time, each with a review request, and never merged by the
+every night (Europe/Berlin), for releases at least three days old, at once
+for a base image of the `Dockerfile`, a security fix at any time, each with a review request, and never merged by the
 bot.
 
 | What | When | How |
 |---|---|---|
-| The sidecar's npm packages (`app/`) | weekly | minor and patch updates in one pull request, a new major in one of its own |
-| The base images of the `Dockerfile` | weekly | one pull request each |
+| The sidecar's npm packages (`app/`) | every night, three days after the release | minor and patch updates in one pull request, a new major in one of its own |
+| The base images of the `Dockerfile` | every night | one pull request each |
 | The plugin's linters (npm) | monthly | one pull request, majors included |
 | The plugin's PHP development tools (Composer) | monthly | one pull request, majors included; PHPUnit stays on 9, the last series that runs on PHP 7.4 |
 | The workflows: actions, runner images, the Node.js they set up, service containers | monthly | one pull request, majors included |
