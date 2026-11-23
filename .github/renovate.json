@@ -1,7 +1,7 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "description": "Dependency update pull requests for wordpress-idx: the sidecar's npm packages and the Dockerfile's base images every week, the plugin's development tools (npm and Composer) and the GitHub Actions workflows once a month, on the shared preset of ioanalytica/renovate-config (schedule, minimum release age, DCO, review requests, the label decision). CONTRIBUTING.md says what the bot updates.",
-  "extends": ["github>ioanalytica/renovate-config#v1.0.2"],
+  "description": "Dependency update pull requests for wordpress-idx: the sidecar's npm packages and the Dockerfile's base images every night, the plugin's development tools (npm and Composer) and the GitHub Actions workflows once a month, on the shared preset of ioanalytica/renovate-config (schedule, minimum release age, DCO, review requests, the label decision). CONTRIBUTING.md says what the bot updates.",
+  "extends": ["github>ioanalytica/renovate-config#v1.1.1"],
   "customManagers": [
     {
       "customType": "regex",
