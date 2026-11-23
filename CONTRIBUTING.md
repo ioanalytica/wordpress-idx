@@ -189,12 +189,10 @@ every night (Europe/Berlin), each with a review request, and never merged by
 the bot. A release must be three days old before its pull request comes, with
 three exceptions. A base image of the `Dockerfile` comes in the night after
 its release. A new digest under an unchanged tag has no release date and does
-not wait. And a fix for a vulnerability that Renovate raises an alert for
-comes at any time, in a monthly group as well. It raises one where GitHub's
-advisories or the OSV database list the vulnerability for a package it follows
-through a package manager, from OSV for a direct dependency only. A security
-fix without such an alert, as in a base image or a binary taken from a release
-page, comes like any other release of that component. What the table lists as
+not wait. And a fix that Renovate raises a [vulnerability
+alert](https://docs.renovatebot.com/configuration-options/#vulnerabilityalerts)
+for comes at any time, as a pull request of its own. Every other security fix
+comes like any other release of that component. What the table lists as
 monthly stays monthly.
 
 | What | When | How |
