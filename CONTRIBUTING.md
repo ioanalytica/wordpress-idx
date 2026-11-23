@@ -187,8 +187,11 @@ shared preset of
 [ioanalytica/renovate-config](https://github.com/ioanalytica/renovate-config):
 every night (Europe/Berlin), each with a review request, and never merged by
 the bot. A release must be three days old before its pull request comes, with
-two exceptions: a base image of the `Dockerfile` comes in the night after its
-release, and a security fix comes at any time. What the table lists as
+three exceptions. A base image of the `Dockerfile` comes in the night after
+its release. A new digest under an unchanged tag has no release date and does
+not wait. And a fix for a vulnerability that GitHub's advisories or the OSV
+database list for a package comes at any time; a security fix they do not list
+comes like any other release of that component. What the table lists as
 monthly stays monthly.
 
 | What | When | How |
