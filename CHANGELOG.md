@@ -3,6 +3,10 @@
 What changed in each version of wordpress-idx. The sidecar and the WordPress
 plugin share one version; the entry of a version is its release notes.
 
+## Unreleased
+
+* Dependency update of the sidecar (dotenv 18.0.10).
+
 ## 1.3.11
 
 * **"Rebuild index" reports the first rebuild of a site with several
